@@ -435,7 +435,7 @@ void _ApplyPatch(IniPatch *p)
 
 		case DOUBLE_LE_T:
 			ledata = SwapEndian(p->data, 64);
-			if (memRead64(p->addr) != (u64)ledata && (!p->hasOldData || memRead64(p->addr, &mem) == SwapEndian(p->oldData, 64)))
+			if (memRead64(p->addr) != (u64)ledata && (!p->hasOldData || memRead64(p->addr) == SwapEndian(p->oldData, 64)))
 				memWrite64(p->addr, (u64)ledata);
 			break;
 
