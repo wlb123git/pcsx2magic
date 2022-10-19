@@ -1351,6 +1351,12 @@
     <ClCompile Include="USB\usb-python2\inputs\btools\usb-python2-btools.cpp">
       <Filter>System\Ps2\USB\usb-python2\inputs</Filter>
     </ClCompile>
+    <ClCompile Include="Frontend\ImGuiOverlays.cpp">
+      <Filter>Host</Filter>
+    </ClCompile>
+    <ClCompile Include="Frontend\DInputSource.cpp">
+      <Filter>Host</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Patch.h">
@@ -2270,6 +2276,15 @@
     <ClInclude Include="Achievements.h" />
     <ClInclude Include="USB\usb-python2\inputs\btools\usb-python2-btools.h">
       <Filter>System\Ps2\USB\usb-python2\inputs</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderCacheVersion.h">
+      <Filter>System\Include</Filter>
+    </ClInclude>
+    <ClInclude Include="Frontend\ImGuiOverlays.h">
+      <Filter>Host</Filter>
+    </ClInclude>
+    <ClInclude Include="Frontend\DInputSource.h">
+      <Filter>Host</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

@@ -321,8 +321,10 @@ Pcsx2Config::GSOptions::GSOptions()
 	OsdShowResolution = false;
 	OsdShowGSStats = false;
 	OsdShowIndicators = true;
+	OsdShowSettings = false;
+	OsdShowInputs = false;
 
-	HWDisableReadbacks = false;
+	HWDownloadMode = GSHardwareDownloadMode::Enabled;
 	GPUPaletteConversion = false;
 	AutoFlushSW = true;
 	PreloadFrameWithGSData = false;
@@ -403,10 +405,12 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(TextureFiltering) &&
 		OpEqu(TexturePreloading) &&
 		OpEqu(GSDumpCompression) &&
+		OpEqu(HWDownloadMode) &&
 		OpEqu(Dithering) &&
 		OpEqu(MaxAnisotropy) &&
 		OpEqu(SWExtraThreads) &&
 		OpEqu(SWExtraThreadsHeight) &&
+		OpEqu(TriFilter) &&
 		OpEqu(TVShader) &&
 		OpEqu(SkipDrawEnd) &&
 		OpEqu(SkipDrawStart) &&
@@ -417,7 +421,6 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(UserHacks_TCOffsetX) &&
 		OpEqu(UserHacks_TCOffsetY) &&
 		OpEqu(UserHacks_CPUSpriteRenderBW) &&
-		OpEqu(UserHacks_TriFilter) &&
 		OpEqu(OverrideTextureBarriers) &&
 		OpEqu(OverrideGeometryShaders) &&
 
@@ -497,7 +500,8 @@ void Pcsx2Config::GSOptions::LoadSaveIniSettings(SettingsWrapper& wrap)
 #define GSSettingIntEx(var, name) SettingsWrapBitfieldEx(var, name)
 #define GSSettingBool(var) SettingsWrapBitBool(var)
 #define GSSettingBoolEx(var, name) SettingsWrapBitBoolEx(var, name)
-#define GSSettingFloat(var) SettingsWrapBitfield(var)
+#define GSSettingFloat(var) SettingsWrapEntry(var)
+#define GSSettingFloatEx(var, name) SettingsWrapEntryEx(var, name)
 #define GSSettingIntEnumEx(var, name) SettingsWrapIntEnumEx(var, name)
 #define GSSettingString(var) SettingsWrapEntry(var)
 #define GSSettingStringEx(var, name) SettingsWrapEntryEx(var, name)
@@ -512,6 +516,7 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 #define GSSettingBool(var) var = theApp.GetConfigB(#var)
 #define GSSettingBoolEx(var, name) var = theApp.GetConfigB(name)
 #define GSSettingFloat(var) var = static_cast<float>(theApp.GetConfigI(#var))
+#define GSSettingFloatEx(var, name) var = static_cast<float>(theApp.GetConfigI(name))
 #define GSSettingIntEnumEx(var, name) var = static_cast<decltype(var)>(theApp.GetConfigI(name))
 #define GSSettingString(var) var = theApp.GetConfigS(#var)
 #define GSSettingStringEx(var, name) var = theApp.GetConfigS(name)
@@ -540,8 +545,9 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingBool(OsdShowResolution);
 	GSSettingBool(OsdShowGSStats);
 	GSSettingBool(OsdShowIndicators);
+	GSSettingBool(OsdShowSettings);
+	GSSettingBool(OsdShowInputs);
 
-	GSSettingBool(HWDisableReadbacks);
 	GSSettingBoolEx(GPUPaletteConversion, "paltex");
 	GSSettingBoolEx(AutoFlushSW, "autoflush_sw");
 	GSSettingBoolEx(PreloadFrameWithGSData, "preload_frame_with_gs_data");
@@ -579,8 +585,10 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingFloat(OsdScale);
 
 	GSSettingIntEnumEx(Renderer, "Renderer");
-	GSSettingIntEx(UpscaleMultiplier, "upscale_multiplier");
-	UpscaleMultiplier = std::clamp(UpscaleMultiplier, 1u, 8u);
+	GSSettingFloatEx(UpscaleMultiplier, "upscale_multiplier");
+
+	// ~51x would the upper bound here for 32768x32768 textures, but you'll run out VRAM long before then.
+	UpscaleMultiplier = std::clamp(UpscaleMultiplier, 0.5f, 50.0f);
 
 	GSSettingIntEnumEx(HWMipmap, "mipmap_hw");
 	GSSettingIntEnumEx(AccurateBlendingUnit, "accurate_blending_unit");
@@ -588,6 +596,7 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingIntEnumEx(TextureFiltering, "filter");
 	GSSettingIntEnumEx(TexturePreloading, "texture_preloading");
 	GSSettingIntEnumEx(GSDumpCompression, "GSDumpCompression");
+	GSSettingIntEnumEx(HWDownloadMode, "HWDownloadMode");
 	GSSettingIntEx(Dithering, "dithering_ps2");
 	GSSettingIntEx(MaxAnisotropy, "MaxAnisotropy");
 	GSSettingIntEx(SWExtraThreads, "extrathreads");
@@ -603,7 +612,7 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingIntEx(UserHacks_TCOffsetX, "UserHacks_TCOffsetX");
 	GSSettingIntEx(UserHacks_TCOffsetY, "UserHacks_TCOffsetY");
 	GSSettingIntEx(UserHacks_CPUSpriteRenderBW, "UserHacks_CPUSpriteRenderBW");
-	GSSettingIntEnumEx(UserHacks_TriFilter, "UserHacks_TriFilter");
+	GSSettingIntEnumEx(TriFilter, "TriFilter");
 	GSSettingIntEx(OverrideTextureBarriers, "OverrideTextureBarriers");
 	GSSettingIntEx(OverrideGeometryShaders, "OverrideGeometryShaders");
 
@@ -652,16 +661,11 @@ void Pcsx2Config::GSOptions::MaskUserHacks()
 	UserHacks_CPUSpriteRenderBW = 0;
 	SkipDrawStart = 0;
 	SkipDrawEnd = 0;
-
-	// in wx, we put trilinear filtering behind user hacks, but not in qt.
-#ifndef PCSX2_CORE
-	UserHacks_TriFilter = TriFiltering::Automatic;
-#endif
 }
 
 void Pcsx2Config::GSOptions::MaskUpscalingHacks()
 {
-	if (UpscaleMultiplier != 1 && ManualUserHacks)
+	if (UpscaleMultiplier > 1.0f && ManualUserHacks)
 		return;
 
 	UserHacks_AlignSpriteX = false;
@@ -676,18 +680,6 @@ void Pcsx2Config::GSOptions::MaskUpscalingHacks()
 bool Pcsx2Config::GSOptions::UseHardwareRenderer() const
 {
 	return (Renderer != GSRendererType::Null && Renderer != GSRendererType::SW);
-}
-
-VsyncMode Pcsx2Config::GetEffectiveVsyncMode() const
-{
-	if (GS.LimitScalar != 1.0f)
-	{
-		Console.WriteLn("Vsync is OFF");
-		return VsyncMode::Off;
-	}
-
-	Console.WriteLn("Vsync is %s", GS.VsyncEnable == VsyncMode::Off ? "OFF" : (GS.VsyncEnable == VsyncMode::Adaptive ? "ADAPTIVE" : "ON"));
-	return GS.VsyncEnable;
 }
 
 Pcsx2Config::SPU2Options::SPU2Options()
@@ -1031,6 +1023,7 @@ Pcsx2Config::AchievementsOptions::AchievementsOptions()
 	ChallengeMode = false;
 	Leaderboards = true;
 	SoundEffects = true;
+	PrimedIndicators = true;
 }
 
 void Pcsx2Config::AchievementsOptions::LoadSave(SettingsWrapper& wrap)
@@ -1044,6 +1037,7 @@ void Pcsx2Config::AchievementsOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBool(ChallengeMode);
 	SettingsWrapBitBool(Leaderboards);
 	SettingsWrapBitBool(SoundEffects);
+	SettingsWrapBitBool(PrimedIndicators);
 }
 
 #endif
@@ -1058,6 +1052,7 @@ Pcsx2Config::Pcsx2Config()
 	EnableRecordingTools = true;
 #ifdef PCSX2_CORE
 	EnableGameFixes = true;
+	InhibitScreensaver = true;
 #endif
 	BackupSavestate = true;
 	SavestateZstdCompression = true;
@@ -1102,6 +1097,8 @@ void Pcsx2Config::LoadSave(SettingsWrapper& wrap)
 #ifdef PCSX2_CORE
 	SettingsWrapBitBool(EnableGameFixes);
 	SettingsWrapBitBool(SaveStateOnShutdown);
+	SettingsWrapBitBool(EnableDiscordPresence);
+	SettingsWrapBitBool(InhibitScreensaver);
 #endif
 	SettingsWrapBitBool(ConsoleToStdio);
 	SettingsWrapBitBool(HostFs);

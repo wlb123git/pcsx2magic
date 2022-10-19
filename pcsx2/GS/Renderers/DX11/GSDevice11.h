@@ -104,13 +104,11 @@ public:
 	public:
 		ShaderMacro(D3D_FEATURE_LEVEL fl);
 		void AddMacro(const char* n, int d);
+		void AddMacro(const char* n, std::string d);
 		D3D_SHADER_MACRO* GetPtr(void);
 	};
 
 private:
-	// Increment this constant whenever shaders change, to invalidate user's shader cache.
-	static constexpr u32 SHADER_VERSION = 1;
-
 	static constexpr u32 MAX_TEXTURES = 4;
 	static constexpr u32 MAX_SAMPLERS = 2;
 

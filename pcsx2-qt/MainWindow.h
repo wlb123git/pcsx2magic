@@ -15,6 +15,8 @@
 
 #pragma once
 
+#include "common/WindowInfo.h"
+
 #include <QtWidgets/QLabel>
 #include <QtWidgets/QMainWindow>
 #include <functional>
@@ -108,6 +110,7 @@ public Q_SLOTS:
 	bool requestShutdown(bool allow_confirm = true, bool allow_save_to_state = true, bool default_save_to_state = true, bool block_until_done = false);
 	void requestExit();
 	void checkForSettingChanges();
+	std::optional<WindowInfo> getWindowInfo();
 
 private Q_SLOTS:
 	void onUpdateCheckComplete();
@@ -174,12 +177,11 @@ protected:
 	void dragEnterEvent(QDragEnterEvent* event) override;
 	void dropEvent(QDropEvent* event) override;
 
-private:
-	enum : s32
-	{
-		NUM_SAVE_STATE_SLOTS = 10,
-	};
+#ifdef _WIN32
+	bool nativeEvent(const QByteArray& eventType, void* message, qintptr* result) override;
+#endif
 
+private:
 	static void setStyleFromSettings();
 	static void setIconThemeFromStyle();
 
@@ -187,6 +189,9 @@ private:
 	void connectSignals();
 	void recreate();
 	void recreateSettings();
+
+	void registerForDeviceNotifications();
+	void unregisterForDeviceNotifications();
 
 	void saveStateToConfig();
 	void restoreStateFromConfig();
@@ -268,6 +273,10 @@ private:
 	bool m_is_closing = false;
 
 	QString m_last_fps_status;
+
+#ifdef _WIN32
+	void* m_device_notification_handle = nullptr;
+#endif
 };
 
 extern MainWindow* g_main_window;

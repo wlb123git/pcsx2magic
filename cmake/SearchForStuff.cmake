@@ -31,7 +31,12 @@ else()
 		set(OpenGL_GL_PREFERENCE GLVND)
 		find_package(OpenGL REQUIRED)
 	endif()
+	# On macOS, Mono.framework contains an ancient version of libpng.  We don't want that.
+	# Avoid it by telling cmake to avoid finding frameworks while we search for libpng.
+	set(FIND_FRAMEWORK_BACKUP ${CMAKE_FIND_FRAMEWORK})
+	set(CMAKE_FIND_FRAMEWORK NEVER)
 	find_package(PNG REQUIRED)
+	set(CMAKE_FIND_FRAMEWORK ${FIND_FRAMEWORK_BACKUP})
 	find_package(Vtune)
 
 	if(NOT PCSX2_CORE)
@@ -81,7 +86,12 @@ else()
 			endif()
 		else()
 			if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
-				set(wxWidgets_CONFIG_EXECUTABLE "/usr/local/bin/wxgtk3u-3.0-config")
+				if(EXISTS "/usr/local/bin/wxgtk3u-3.1-config")
+					set(wxWidgets_CONFIG_EXECUTABLE "/usr/local/bin/wxgtk3u-3.1-config")
+				endif()
+				if(EXISTS "/usr/local/bin/wxgtk3u-3.0-config")
+					set(wxWidgets_CONFIG_EXECUTABLE "/usr/local/bin/wxgtk3u-3.0-config")
+				endif()
 			endif()
 			if(EXISTS "/usr/bin/wx-config-3.2")
 				set(wxWidgets_CONFIG_EXECUTABLE "/usr/bin/wx-config-3.2")
@@ -188,10 +198,6 @@ endif()
 #----------------------------------------
 include(ApiValidation)
 
-if(NOT PCSX2_CORE)
-	WX_vs_SDL()
-endif()
-
 # Blacklist bad GCC
 if(GCC_VERSION VERSION_EQUAL "7.0" OR GCC_VERSION VERSION_EQUAL "7.1")
 	GCC7_BUG()
@@ -238,6 +244,12 @@ if(QT_BUILD)
 	# rcheevos backend for RetroAchievements.
 	if(USE_ACHIEVEMENTS)
 		add_subdirectory(3rdparty/rcheevos EXCLUDE_FROM_ALL)
+	endif()
+
+	# Discord-RPC library for rich presence.
+	if(USE_DISCORD_PRESENCE)
+		add_subdirectory(3rdparty/rapidjson EXCLUDE_FROM_ALL)
+		add_subdirectory(3rdparty/discord-rpc EXCLUDE_FROM_ALL)
 	endif()
 endif()
 

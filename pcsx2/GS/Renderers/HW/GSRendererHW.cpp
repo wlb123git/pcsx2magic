@@ -93,7 +93,8 @@ GSVector2i GSRendererHW::GetOutputSize(int real_h)
 	// Include negative display offsets in the height here.
 	crtc_size.y = std::max(crtc_size.y, real_h);
 
-	return crtc_size * GSVector2i(static_cast<int>(GSConfig.UpscaleMultiplier), static_cast<int>(GSConfig.UpscaleMultiplier));
+	return GSVector2i(static_cast<float>(crtc_size.x) * GSConfig.UpscaleMultiplier,
+		static_cast<float>(crtc_size.y) * GSConfig.UpscaleMultiplier);
 }
 
 void GSRendererHW::SetTCOffset()
@@ -171,10 +172,10 @@ void GSRendererHW::SetGameCRC(u32 crc, int options)
 
 bool GSRendererHW::CanUpscale()
 {
-	return GSConfig.UpscaleMultiplier != 1;
+	return GSConfig.UpscaleMultiplier != 1.0f;
 }
 
-int GSRendererHW::GetUpscaleMultiplier()
+float GSRendererHW::GetUpscaleMultiplier()
 {
 	return GSConfig.UpscaleMultiplier;
 }
@@ -661,7 +662,7 @@ void GSRendererHW::ConvertSpriteTextureShuffle(bool& write_ba, bool& read_ba)
 
 GSVector4 GSRendererHW::RealignTargetTextureCoordinate(const GSTextureCache::Source* tex)
 {
-	if (GSConfig.UserHacks_HalfPixelOffset <= 1 || GetUpscaleMultiplier() == 1)
+	if (GSConfig.UserHacks_HalfPixelOffset <= 1 || GetUpscaleMultiplier() == 1.0f)
 		return GSVector4(0.0f);
 
 	const GSVertex* v = &m_vertex.buff[0];
@@ -798,7 +799,7 @@ void GSRendererHW::MergeSprite(GSTextureCache::Source* tex)
 
 GSVector2 GSRendererHW::GetTextureScaleFactor()
 {
-	const float f_upscale = static_cast<float>(GetUpscaleMultiplier());
+	const float f_upscale = GetUpscaleMultiplier();
 	return GSVector2(f_upscale, f_upscale);
 }
 
@@ -835,7 +836,8 @@ GSVector2i GSRendererHW::GetTargetSize(GSVector2i* unscaled_size)
 
 	GL_INS("Target size for %x %u %u: %ux%u", m_context->FRAME.FBP, m_context->FRAME.FBW, m_context->FRAME.PSM, width, height);
 
-	return GSVector2i(static_cast<int>(width * GSConfig.UpscaleMultiplier), static_cast<int>(height * GSConfig.UpscaleMultiplier));
+	return GSVector2i(static_cast<int>(static_cast<float>(width) * GSConfig.UpscaleMultiplier),
+		static_cast<int>(static_cast<float>(height) * GSConfig.UpscaleMultiplier));
 }
 
 void GSRendererHW::InvalidateVideoMem(const GIFRegBITBLTBUF& BITBLTBUF, const GSVector4i& r)
@@ -1516,10 +1518,15 @@ void GSRendererHW::Draw()
 
 		m_src = tex_psm.depth ? m_tc->LookupDepthSource(TEX0, env.TEXA, tmm.coverage) :
 			m_tc->LookupSource(TEX0, env.TEXA, tmm.coverage, (GSConfig.HWMipmap >= HWMipmapLevel::Basic ||
-				GSConfig.UserHacks_TriFilter == TriFiltering::Forced) ? &hash_lod_range : nullptr);
+				GSConfig.TriFilter == TriFiltering::Forced) ? &hash_lod_range : nullptr);
 
 		const int tw = 1 << TEX0.TW;
 		const int th = 1 << TEX0.TH;
+#if 0
+		// FIXME: We currently crop off the rightmost and bottommost pixel when upscaling clamps,
+		// until the issue is properly solved we should keep this disabled as it breaks many games when upscaling.
+		// See #5387, #5853, #5851 on GH for more details.
+		// 
 		// Texture clamp optimizations (try to move everything to sampler hardware)
 		if (m_context->CLAMP.WMS == CLAMP_REGION_CLAMP && MIP_CLAMP.MINU == 0 && MIP_CLAMP.MAXU == tw - 1)
 			m_context->CLAMP.WMS = CLAMP_CLAMP;
@@ -1533,6 +1540,7 @@ void GSRendererHW::Draw()
 			m_context->CLAMP.WMT = CLAMP_REPEAT;
 		else if ((m_context->CLAMP.WMT & 2) && !(tmm.uses_boundary & TextureMinMaxResult::USES_BOUNDARY_V))
 			m_context->CLAMP.WMT = CLAMP_CLAMP;
+#endif
 
 		// If m_src is from a target that isn't the same size as the texture, texture sample edge modes won't work quite the same way
 		// If the game actually tries to access stuff outside of the rendered target, it was going to get garbage anyways so whatever
@@ -1957,7 +1965,7 @@ void GSRendererHW::SetupIA(const float& sx, const float& sy)
 		for (unsigned int i = 0; i < m_vertex.next; i++)
 			m_vertex.buff[i].UV &= 0x3FEF3FEF;
 	}
-	const bool unscale_pt_ln = !GSConfig.UserHacks_DisableSafeFeatures && (GetUpscaleMultiplier() != 1);
+	const bool unscale_pt_ln = !GSConfig.UserHacks_DisableSafeFeatures && (GetUpscaleMultiplier() != 1.0f);
 	const GSDevice::FeatureSupport features = g_gs_device->Features();
 
 	ASSERT(VerifyIndices());
@@ -2499,10 +2507,10 @@ void GSRendererHW::EmulateBlending(bool& DATE_PRIMID, bool& DATE_BARRIER, bool& 
 	}
 
 	// Get alpha value
-	const bool alpha_c0_zero = (m_conf.ps.blend_c == 0 && GetAlphaMinMax().max == 0) && !IsCoverageAlpha();
-	const bool alpha_c0_one = (m_conf.ps.blend_c == 0 && (GetAlphaMinMax().min == 128) && (GetAlphaMinMax().max == 128)) || IsCoverageAlpha();
-	const bool alpha_c0_high_min_one = (m_conf.ps.blend_c == 0 && GetAlphaMinMax().min > 128) && !IsCoverageAlpha();
-	const bool alpha_c0_high_max_one = (m_conf.ps.blend_c == 0 && GetAlphaMinMax().max > 128) && !IsCoverageAlpha();
+	const bool alpha_c0_zero = (m_conf.ps.blend_c == 0 && GetAlphaMinMax().max == 0);
+	const bool alpha_c0_one = (m_conf.ps.blend_c == 0 && (GetAlphaMinMax().min == 128) && (GetAlphaMinMax().max == 128));
+	const bool alpha_c0_high_min_one = (m_conf.ps.blend_c == 0 && GetAlphaMinMax().min > 128);
+	const bool alpha_c0_high_max_one = (m_conf.ps.blend_c == 0 && GetAlphaMinMax().max > 128);
 	const bool alpha_c2_zero = (m_conf.ps.blend_c == 2 && AFIX == 0u);
 	const bool alpha_c2_one = (m_conf.ps.blend_c == 2 && AFIX == 128u);
 	const bool alpha_c2_high_one = (m_conf.ps.blend_c == 2 && AFIX > 128u);
@@ -2574,7 +2582,7 @@ void GSRendererHW::EmulateBlending(bool& DATE_PRIMID, bool& DATE_BARRIER, bool& 
 	const bool blend_mix1 = !!(blend_flag & BLEND_MIX1);
 	const bool blend_mix2 = !!(blend_flag & BLEND_MIX2);
 	const bool blend_mix3 = !!(blend_flag & BLEND_MIX3);
-	bool blend_mix = (blend_mix1 || blend_mix2 || blend_mix3);
+	bool blend_mix = (blend_mix1 || blend_mix2 || blend_mix3) && m_env.COLCLAMP.CLAMP;
 
 	const bool one_barrier = m_conf.require_one_barrier || blend_ad_alpha_masked;
 
@@ -2756,13 +2764,12 @@ void GSRendererHW::EmulateBlending(bool& DATE_PRIMID, bool& DATE_BARRIER, bool& 
 			accumulation_blend = false;
 			blend_mix          = false;
 		}
-		else if (accumulation_blend || blend_mix)
+		else if (accumulation_blend)
 		{
 			// A fast algo that requires 2 passes
 			GL_INS("COLCLIP Fast HDR mode ENABLED");
 			m_conf.ps.hdr = 1;
-			blend_mix = false;
-			sw_blending   = true; // Enable sw blending for the HDR algo
+			sw_blending = true; // Enable sw blending for the HDR algo
 		}
 		else if (sw_blending)
 		{
@@ -2858,13 +2865,23 @@ void GSRendererHW::EmulateBlending(bool& DATE_PRIMID, bool& DATE_BARRIER, bool& 
 				m_conf.ps.blend_d = 2;
 			}
 
-			if (m_conf.ps.blend_a == 2)
+			if (blend.op == GSDevice::OP_REV_SUBTRACT)
 			{
-				// The blend unit does a reverse subtraction so it means
-				// the shader must output a positive value.
-				// Replace 0 - Cs by Cs - 0
-				m_conf.ps.blend_a = m_conf.ps.blend_b;
-				m_conf.ps.blend_b = 2;
+				ASSERT(m_conf.ps.blend_a == 2);
+				if (m_conf.ps.hdr)
+				{
+					// HDR uses unorm, which is always positive
+					// Have the shader do the inversion, then clip to remove the negative
+					m_conf.blend.op = GSDevice::OP_ADD;
+				}
+				else
+				{
+					// The blend unit does a reverse subtraction so it means
+					// the shader must output a positive value.
+					// Replace 0 - Cs by Cs - 0
+					m_conf.ps.blend_a = m_conf.ps.blend_b;
+					m_conf.ps.blend_b = 2;
+				}
 			}
 
 			// Dual source output not needed (accumulation blend replaces it with ONE).
@@ -2896,6 +2913,12 @@ void GSRendererHW::EmulateBlending(bool& DATE_PRIMID, bool& DATE_BARRIER, bool& 
 					//m_conf.ps.blend_mix = 0;
 					// DSB output will always be used.
 					m_conf.ps.no_color1 = false;
+				}
+				else if (m_conf.ps.blend_a == m_conf.ps.blend_d)
+				{
+					// Compensate slightly for Cd*(As + 1) - Cs*As.
+					// Try to compensate a bit with subtracting 1 (0.00392) * (Alpha + 1) from Cs.
+					m_conf.ps.clr_hw = 2;
 				}
 
 				m_conf.ps.blend_a = 0;
@@ -3032,7 +3055,7 @@ void GSRendererHW::EmulateTextureSampler(const GSTextureCache::Source* tex)
 	bool bilinear = m_vt.IsLinear();
 	int trilinear = 0;
 	bool trilinear_auto = false; // Generate mipmaps if needed (basic).
-	switch (GSConfig.UserHacks_TriFilter)
+	switch (GSConfig.TriFilter)
 	{
 		case TriFiltering::Forced:
 		{
@@ -3433,8 +3456,9 @@ void GSRendererHW::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sourc
 				DATE_BARRIER = true;
 			}
 		}
-		// When Blending is disabled and Edge Anti Aliasing is enabled, the output alpha is Coverage (which we force to 128) so DATE will fail/pass guaranteed on second pass.
-		else if (m_conf.colormask.wa && (m_context->FBA.FBA || IsCoverageAlpha()))
+		// When Blending is disabled and Edge Anti Aliasing is enabled,
+		// the output alpha is Coverage (which we force to 128) so DATE will fail/pass guaranteed on second pass.
+		else if (m_conf.colormask.wa && (m_context->FBA.FBA || IsCoverageAlpha()) && features.stencil_buffer)
 		{
 			GL_PERF("DATE: Fast with FBA, all pixels will be >= 128");
 			DATE_one = !m_context->TEST.DATM;
@@ -3719,6 +3743,8 @@ void GSRendererHW::DrawPrims(GSTexture* rt, GSTexture* ds, GSTextureCache::Sourc
 		m_conf.require_one_barrier = false;
 		m_conf.require_full_barrier = false;
 	}
+	// Multi-pass algorithms shouldn't be needed with full barrier and backends may not handle this correctly
+	ASSERT(!m_conf.require_full_barrier || !m_conf.ps.hdr);
 
 	// Swap full barrier for one barrier when there's no overlap.
 	if (m_conf.require_full_barrier && m_prim_overlap == PRIM_OVERLAP_NO)
@@ -4073,59 +4099,69 @@ bool GSRendererHW::SwPrimRender()
 				}
 			}
 
-			const u16 tw = 1u << TEX0.TW;
-			const u16 th = 1u << TEX0.TH;
+			u16 tw = 1u << TEX0.TW;
+			u16 th = 1u << TEX0.TH;
+
+			if (tw > 1024)
+				tw = 1;
+
+			if (th > 1024)
+				th = 1;
 
 			switch (context->CLAMP.WMS)
 			{
-			case CLAMP_REPEAT:
-				gd.t.min.U16[0] = gd.t.minmax.U16[0] = tw - 1;
-				gd.t.max.U16[0] = gd.t.minmax.U16[2] = 0;
-				gd.t.mask.U32[0] = 0xffffffff;
-				break;
-			case CLAMP_CLAMP:
-				gd.t.min.U16[0] = gd.t.minmax.U16[0] = 0;
-				gd.t.max.U16[0] = gd.t.minmax.U16[2] = tw - 1;
-				gd.t.mask.U32[0] = 0;
-				break;
-			case CLAMP_REGION_CLAMP:
-				gd.t.min.U16[0] = gd.t.minmax.U16[0] = std::min<u16>(context->CLAMP.MINU, tw - 1);
-				gd.t.max.U16[0] = gd.t.minmax.U16[2] = std::min<u16>(context->CLAMP.MAXU, tw - 1);
-				gd.t.mask.U32[0] = 0;
-				break;
-			case CLAMP_REGION_REPEAT:
-				gd.t.min.U16[0] = gd.t.minmax.U16[0] = context->CLAMP.MINU & (tw - 1);
-				gd.t.max.U16[0] = gd.t.minmax.U16[2] = context->CLAMP.MAXU & (tw - 1);
-				gd.t.mask.U32[0] = 0xffffffff;
-				break;
-			default:
-				__assume(0);
+				case CLAMP_REPEAT:
+					gd.t.min.U16[0] = gd.t.minmax.U16[0] = tw - 1;
+					gd.t.max.U16[0] = gd.t.minmax.U16[2] = 0;
+					gd.t.mask.U32[0] = 0xffffffff;
+					break;
+				case CLAMP_CLAMP:
+					gd.t.min.U16[0] = gd.t.minmax.U16[0] = 0;
+					gd.t.max.U16[0] = gd.t.minmax.U16[2] = tw - 1;
+					gd.t.mask.U32[0] = 0;
+					break;
+				case CLAMP_REGION_CLAMP:
+					// REGION_CLAMP ignores the actual texture size
+					gd.t.min.U16[0] = gd.t.minmax.U16[0] = context->CLAMP.MINU;
+					gd.t.max.U16[0] = gd.t.minmax.U16[2] = context->CLAMP.MAXU;
+					gd.t.mask.U32[0] = 0;
+					break;
+				case CLAMP_REGION_REPEAT:
+					// MINU is restricted to MINU or texture size, whichever is smaller, MAXU is an offset in the texture.
+					gd.t.min.U16[0] = gd.t.minmax.U16[0] = context->CLAMP.MINU & (tw - 1);
+					gd.t.max.U16[0] = gd.t.minmax.U16[2] = context->CLAMP.MAXU;
+					gd.t.mask.U32[0] = 0xffffffff;
+					break;
+				default:
+					__assume(0);
 			}
 
 			switch (context->CLAMP.WMT)
 			{
-			case CLAMP_REPEAT:
-				gd.t.min.U16[4] = gd.t.minmax.U16[1] = th - 1;
-				gd.t.max.U16[4] = gd.t.minmax.U16[3] = 0;
-				gd.t.mask.U32[2] = 0xffffffff;
-				break;
-			case CLAMP_CLAMP:
-				gd.t.min.U16[4] = gd.t.minmax.U16[1] = 0;
-				gd.t.max.U16[4] = gd.t.minmax.U16[3] = th - 1;
-				gd.t.mask.U32[2] = 0;
-				break;
-			case CLAMP_REGION_CLAMP:
-				gd.t.min.U16[4] = gd.t.minmax.U16[1] = std::min<u16>(context->CLAMP.MINV, th - 1);
-				gd.t.max.U16[4] = gd.t.minmax.U16[3] = std::min<u16>(context->CLAMP.MAXV, th - 1); // ffx anima summon scene, when the anchor appears (th = 256, maxv > 256)
-				gd.t.mask.U32[2] = 0;
-				break;
-			case CLAMP_REGION_REPEAT:
-				gd.t.min.U16[4] = gd.t.minmax.U16[1] = context->CLAMP.MINV & (th - 1); // skygunner main menu water texture 64x64, MINV = 127
-				gd.t.max.U16[4] = gd.t.minmax.U16[3] = context->CLAMP.MAXV & (th - 1);
-				gd.t.mask.U32[2] = 0xffffffff;
-				break;
-			default:
-				__assume(0);
+				case CLAMP_REPEAT:
+					gd.t.min.U16[4] = gd.t.minmax.U16[1] = th - 1;
+					gd.t.max.U16[4] = gd.t.minmax.U16[3] = 0;
+					gd.t.mask.U32[2] = 0xffffffff;
+					break;
+				case CLAMP_CLAMP:
+					gd.t.min.U16[4] = gd.t.minmax.U16[1] = 0;
+					gd.t.max.U16[4] = gd.t.minmax.U16[3] = th - 1;
+					gd.t.mask.U32[2] = 0;
+					break;
+				case CLAMP_REGION_CLAMP:
+					// REGION_CLAMP ignores the actual texture size
+					gd.t.min.U16[4] = gd.t.minmax.U16[1] = context->CLAMP.MINV;
+					gd.t.max.U16[4] = gd.t.minmax.U16[3] = context->CLAMP.MAXV; // ffx anima summon scene, when the anchor appears (th = 256, maxv > 256)
+					gd.t.mask.U32[2] = 0;
+					break;
+				case CLAMP_REGION_REPEAT:
+					// MINV is restricted to MINV or texture size, whichever is smaller, MAXV is an offset in the texture.
+					gd.t.min.U16[4] = gd.t.minmax.U16[1] = context->CLAMP.MINV & (th - 1); // skygunner main menu water texture 64x64, MINV = 127
+					gd.t.max.U16[4] = gd.t.minmax.U16[3] = context->CLAMP.MAXV;
+					gd.t.mask.U32[2] = 0xffffffff;
+					break;
+				default:
+					__assume(0);
 			}
 
 			gd.t.min = gd.t.min.xxxxlh();
@@ -4660,7 +4696,7 @@ bool GSRendererHW::OI_FFXII(GSTexture* rt, GSTexture* ds, GSTextureCache::Source
 
 				g_gs_device->Recycle(t->m_texture);
 
-				t->m_texture = g_gs_device->CreateTexture(512, 512, false, GSTexture::Format::Color);
+				t->m_texture = g_gs_device->CreateTexture(512, 512, 1, GSTexture::Format::Color);
 
 				t->m_texture->Update(GSVector4i(0, 0, 448, lines), video, 448 * 4);
 

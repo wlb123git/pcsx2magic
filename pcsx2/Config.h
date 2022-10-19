@@ -199,6 +199,14 @@ enum class GSDumpCompressionMethod : u8
 	Zstandard,
 };
 
+enum class GSHardwareDownloadMode : u8
+{
+	Enabled,
+	NoReadbacks,
+	Unsynchronized,
+	Disabled
+};
+
 // Template function for casting enumerations to their underlying type
 template <typename Enumeration>
 typename std::underlying_type<Enumeration>::type enum_cast(Enumeration E)
@@ -391,6 +399,30 @@ struct Pcsx2Config
 		{
 			return !OpEqu(bitset);
 		}
+
+		u32 GetEEClampMode() const
+		{
+			return fpuFullMode ? 3 : (fpuExtraOverflow ? 2 : (fpuOverflow ? 1 : 0));
+		}
+
+		void SetEEClampMode(u32 value)
+		{
+			fpuOverflow = (value >= 1);
+			fpuExtraOverflow = (value >= 2);
+			fpuFullMode = (value >= 3);
+		}
+
+		u32 GetVUClampMode() const
+		{
+			return vuSignOverflow ? 3 : (vuExtraOverflow ? 2 : (vuOverflow ? 1 : 0));
+		}
+
+		void SetVUClampMode(u32 value)
+		{
+			vuOverflow = (value >= 1);
+			vuExtraOverflow = (value >= 2);
+			vuSignOverflow = (value >= 3);
+		}
 	};
 
 	// ------------------------------------------------------------------------
@@ -459,10 +491,11 @@ struct Pcsx2Config
 					OsdShowGPU : 1,
 					OsdShowResolution : 1,
 					OsdShowGSStats : 1,
-					OsdShowIndicators : 1;
+					OsdShowIndicators : 1,
+					OsdShowSettings : 1,
+					OsdShowInputs : 1;
 
 				bool
-					HWDisableReadbacks : 1,
 					GPUPaletteConversion : 1,
 					AutoFlushSW : 1,
 					PreloadFrameWithGSData : 1,
@@ -527,7 +560,7 @@ struct Pcsx2Config
 		float OsdScale{100.0};
 
 		GSRendererType Renderer{GSRendererType::Auto};
-		uint UpscaleMultiplier{1};
+		float UpscaleMultiplier{1.0f};
 
 		HWMipmapLevel HWMipmap{HWMipmapLevel::Automatic};
 		AccBlendLevel AccurateBlendingUnit{AccBlendLevel::Basic};
@@ -535,6 +568,7 @@ struct Pcsx2Config
 		BiFiltering TextureFiltering{BiFiltering::PS2};
 		TexturePreloadingLevel TexturePreloading{TexturePreloadingLevel::Full};
 		GSDumpCompressionMethod GSDumpCompression{GSDumpCompressionMethod::LZMA};
+		GSHardwareDownloadMode HWDownloadMode{GSHardwareDownloadMode::Enabled};
 		int Dithering{2};
 		int MaxAnisotropy{0};
 		int SWExtraThreads{2};
@@ -549,7 +583,7 @@ struct Pcsx2Config
 		int UserHacks_TCOffsetX{0};
 		int UserHacks_TCOffsetY{0};
 		int UserHacks_CPUSpriteRenderBW{0};
-		TriFiltering UserHacks_TriFilter{TriFiltering::Automatic};
+		TriFiltering TriFilter{TriFiltering::Automatic};
 		int OverrideTextureBarriers{-1};
 		int OverrideGeometryShaders{-1};
 
@@ -956,7 +990,8 @@ struct Pcsx2Config
 			RichPresence : 1,
 			ChallengeMode : 1,
 			Leaderboards : 1,
-			SoundEffects : 1;
+			SoundEffects : 1,
+			PrimedIndicators : 1;
 		BITFIELD_END
 
 		AchievementsOptions();
@@ -991,6 +1026,8 @@ struct Pcsx2Config
 #ifdef PCSX2_CORE
 		EnableGameFixes : 1, // enables automatic game fixes
 		SaveStateOnShutdown : 1, // default value for saving state on shutdown
+		EnableDiscordPresence : 1, // enables discord rich presence integration
+		InhibitScreensaver : 1,
 #endif
 		// when enabled uses BOOT2 injection, skipping sony bios splashes
 		UseBOOT2Injection : 1,
@@ -1052,8 +1089,6 @@ struct Pcsx2Config
 	std::string FullpathToMcd(uint slot) const;
 
 	bool MultitapEnabled(uint port) const;
-
-	VsyncMode GetEffectiveVsyncMode() const;
 
 	bool operator==(const Pcsx2Config& right) const;
 	bool operator!=(const Pcsx2Config& right) const

@@ -87,13 +87,13 @@ bool GameList::IsGameListLoaded()
 
 const char* GameList::EntryTypeToString(EntryType type)
 {
-	static std::array<const char*, static_cast<int>(EntryType::Count)> names = {{"PS2Disc", "PS1Disc", "ELF", "Playlist", "Python 2"}};
+	static std::array<const char*, static_cast<int>(EntryType::Count)> names = {{"PS2Disc", "PS1Disc", "ELF", "Python 2"}};
 	return names[static_cast<int>(type)];
 }
 
 const char* GameList::EntryTypeToDisplayString(EntryType type)
 {
-	static std::array<const char*, static_cast<int>(EntryType::Count)> names = {{"PS2 Disc", "PS1 Disc", "ELF", "Playlist", "Python 2"}};
+	static std::array<const char*, static_cast<int>(EntryType::Count)> names = {{"PS2 Disc", "PS1 Disc", "ELF", "Python 2"}};
 	return names[static_cast<int>(type)];
 }
 

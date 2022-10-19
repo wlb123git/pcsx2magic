@@ -16,6 +16,7 @@
 #include "PrecompiledHeader.h"
 
 #include "Frontend/Achievements.h"
+#include "Frontend/CommonHost.h"
 #include "Frontend/FullscreenUI.h"
 #include "Frontend/ImGuiFullscreen.h"
 
@@ -286,7 +287,7 @@ namespace Achievements
 			data.push_back(0);
 
 			const int error = ParseFunc(this, reinterpret_cast<const char*>(data.data()));
-			initialized = true;
+			initialized = (error == RC_OK);
 
 			const rc_api_response_t& response = static_cast<T*>(this)->response;
 			if (error != RC_OK)
@@ -394,6 +395,11 @@ void Achievements::ClearGameInfo(bool clear_achievements, bool clear_leaderboard
 		s_rich_presence_string = {};
 		s_has_rich_presence = false;
 		s_game_id = 0;
+
+#ifdef ENABLE_DISCORD_PRESENCE
+		if (EmuConfig.EnableDiscordPresence)
+			CommonHost::UpdateDiscordPresence(s_rich_presence_string);
+#endif
 	}
 
 	if (had_game)
@@ -542,7 +548,7 @@ void Achievements::UpdateSettings(const Pcsx2Config::AchievementsOptions& old_co
 		}
 		else if (!s_challenge_mode && EmuConfig.Achievements.ChallengeMode)
 		{
-			Host::AddKeyedOSDMessage("challenge_mode_reset", "Hardcore mode will be enabled on system reset.", 10.0f);
+			ImGuiFullscreen::ShowToast(std::string(), "Hardcore mode will be enabled on system reset.", 10.0f);
 		}
 	}
 
@@ -894,8 +900,9 @@ void Achievements::LoginCallback(s32 status_code, const std::string& content_typ
 {
 	std::unique_lock lock(s_achievements_mutex);
 
+	// NOTE: The strings here can be null if the server returns literal "null" (see rc_json_get_string()), hence the double-check.
 	RAPIResponse<rc_api_login_response_t, rc_api_process_login_response, rc_api_destroy_login_response> response(status_code, data);
-	if (!response)
+	if (!response || !response.username || !response.api_token)
 	{
 		FormattedError("Login failed. Please check your user name and password, and try again.");
 		return;
@@ -948,7 +955,7 @@ bool Achievements::LoginAsync(const char* username, const char* password)
 
 	if (FullscreenUI::IsInitialized())
 	{
-		ImGuiFullscreen::OpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchievements...", 0, 1, 0);
+		ImGuiFullscreen::OpenBackgroundProgressDialog("cheevos_async_login", "Logging in to RetroAchievements...", 0, 0, 0);
 	}
 
 	SendLogin(username, password, s_http_downloader.get(), LoginASyncCallback);
@@ -1120,7 +1127,7 @@ void Achievements::GetPatchesCallback(s32 status_code, const std::string& conten
 
 	std::unique_lock lock(s_achievements_mutex);
 	ClearGameInfo();
-	if (!response)
+	if (!response || !response.title)
 		return;
 
 	// ensure fullscreen UI is ready
@@ -1130,7 +1137,7 @@ void Achievements::GetPatchesCallback(s32 status_code, const std::string& conten
 	s_game_title = response.title;
 
 	// try for a icon
-	if (std::strlen(response.image_name) > 0)
+	if (response.image_name && std::strlen(response.image_name) > 0)
 	{
 		s_game_icon = Path::Combine(s_game_icon_cache_directory, fmt::format("{}.png", s_game_id));
 		if (!FileSystem::FileExists(s_game_icon.c_str()))
@@ -1168,6 +1175,12 @@ void Achievements::GetPatchesCallback(s32 status_code, const std::string& conten
 			continue;
 		}
 
+		if (!defn.definition || !defn.title || !defn.description || !defn.badge_name)
+		{
+			Console.Error("Incomplete achievement %u", defn.id);
+			continue;
+		}
+
 		Achievement cheevo;
 		cheevo.id = defn.id;
 		cheevo.memaddr = defn.definition;
@@ -1185,6 +1198,11 @@ void Achievements::GetPatchesCallback(s32 status_code, const std::string& conten
 	for (u32 i = 0; i < response.num_leaderboards; i++)
 	{
 		const rc_api_leaderboard_definition_t& defn = response.leaderboards[i];
+		if (!defn.title || !defn.description || !defn.definition)
+		{
+			Console.Error("Incomplete leaderboard %u", defn.id);
+			continue;
+		}
 
 		Leaderboard lboard;
 		lboard.id = defn.id;
@@ -1203,7 +1221,7 @@ void Achievements::GetPatchesCallback(s32 status_code, const std::string& conten
 	}
 
 	// Parse rich presence.
-	if (std::strlen(response.rich_presence_script) > 0)
+	if (response.rich_presence_script && std::strlen(response.rich_presence_script) > 0)
 	{
 		const int res = rc_runtime_activate_richpresence(&s_rcheevos_runtime, response.rich_presence_script, nullptr, 0);
 		if (res == RC_OK)
@@ -1273,6 +1291,8 @@ void Achievements::GetLbInfoCallback(s32 status_code, const std::string& content
 	for (u32 i = 0; i < response.num_entries; i++)
 	{
 		const rc_api_lboard_info_entry_t& entry = response.entries[i];
+		if (!entry.username)
+			continue;
 
 		char score[128];
 		rc_runtime_format_lboard_value(score, sizeof(score), entry.score, leaderboard->format);
@@ -1281,6 +1301,7 @@ void Achievements::GetLbInfoCallback(s32 status_code, const std::string& content
 		lbe.user = entry.username;
 		lbe.rank = entry.rank;
 		lbe.formatted_score = score;
+		lbe.submitted = entry.submitted;
 		lbe.is_self = lbe.user == s_username;
 
 		s_lboard_entries->push_back(std::move(lbe));
@@ -1499,22 +1520,30 @@ void Achievements::UpdateRichPresence()
 
 	char buffer[512];
 	const int res = rc_runtime_get_richpresence(&s_rcheevos_runtime, buffer, sizeof(buffer), PeekMemory, nullptr, nullptr);
-	if (res <= 0)
-	{
-		const bool had_rich_presence = !s_rich_presence_string.empty();
-		s_rich_presence_string.clear();
-		if (had_rich_presence)
-			Host::OnAchievementsRefreshed();
-
-		return;
-	}
 
 	std::unique_lock lock(s_achievements_mutex);
-	if (s_rich_presence_string == buffer)
-		return;
+	const bool had_rich_presence = !s_rich_presence_string.empty();
+	if (res <= 0)
+	{
+		if (!had_rich_presence)
+			return;
 
-	s_rich_presence_string.assign(buffer);
+		s_rich_presence_string.clear();
+	}
+	else
+	{
+		if (s_rich_presence_string == buffer)
+			return;
+
+		s_rich_presence_string.assign(buffer);
+	}
+
 	Host::OnAchievementsRefreshed();
+
+#ifdef ENABLE_DISCORD_PRESENCE
+	if (EmuConfig.EnableDiscordPresence)
+		CommonHost::UpdateDiscordPresence(s_rich_presence_string);
+#endif
 }
 
 void Achievements::SendPingCallback(s32 status_code, const std::string& content_type, Common::HTTPDownloader::Request::Data data)
@@ -1901,15 +1930,16 @@ std::string Achievements::GetAchievementProgressText(const Achievement& achievem
 	return buf;
 }
 
-const std::string& Achievements::GetAchievementBadgePath(const Achievement& achievement, bool download_if_missing)
+const std::string& Achievements::GetAchievementBadgePath(const Achievement& achievement, bool download_if_missing, bool force_unlocked_icon)
 {
-	std::string& badge_path = achievement.locked ? achievement.locked_badge_path : achievement.unlocked_badge_path;
+	const bool use_locked = (achievement.locked && !force_unlocked_icon);
+	std::string& badge_path = use_locked ? achievement.locked_badge_path : achievement.unlocked_badge_path;
 	if (!badge_path.empty() || achievement.badge_name.empty())
 		return badge_path;
 
 	// well, this comes from the internet.... :)
 	std::string clean_name(Path::SanitizeFileName(achievement.badge_name));
-	badge_path = Path::Combine(s_achievement_icon_cache_directory, fmt::format("{}{}.png", clean_name, achievement.locked ? "_lock" : ""));
+	badge_path = Path::Combine(s_achievement_icon_cache_directory, fmt::format("{}{}.png", clean_name, use_locked ? "_lock" : ""));
 	if (FileSystem::FileExists(badge_path.c_str()))
 		return badge_path;
 
@@ -1918,7 +1948,7 @@ const std::string& Achievements::GetAchievementBadgePath(const Achievement& achi
 	{
 		RAPIRequest<rc_api_fetch_image_request_t, rc_api_init_fetch_image_request> request;
 		request.image_name = achievement.badge_name.c_str();
-		request.image_type = achievement.locked ? RC_IMAGE_TYPE_ACHIEVEMENT_LOCKED : RC_IMAGE_TYPE_ACHIEVEMENT;
+		request.image_type = use_locked ? RC_IMAGE_TYPE_ACHIEVEMENT_LOCKED : RC_IMAGE_TYPE_ACHIEVEMENT;
 		request.DownloadImage(badge_path);
 	}
 

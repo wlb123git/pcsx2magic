@@ -61,8 +61,6 @@
 #include "Frontend/Achievements.h"
 #endif
 
-static constexpr s32 MAX_SAVE_STATE_SLOTS = 10;
-
 using ImGuiFullscreen::g_large_font;
 using ImGuiFullscreen::g_layout_padding_left;
 using ImGuiFullscreen::g_layout_padding_top;
@@ -204,7 +202,6 @@ namespace FullscreenUI
 	//////////////////////////////////////////////////////////////////////////
 	// Main
 	//////////////////////////////////////////////////////////////////////////
-	static void UpdateForcedVsync(bool should_force);
 	static void UpdateGameDetails(std::string path, std::string serial, std::string title, u32 crc);
 	static void ToggleTheme();
 	static void PauseForMenuOpen();
@@ -296,7 +293,7 @@ namespace FullscreenUI
 	static void DrawCreateMemoryCardWindow();
 	static void DrawControllerSettingsPage();
 	static void DrawHotkeySettingsPage();
-	static void DrawAchievementsSettingsPage();
+	static void DrawAchievementsSettingsPage(std::unique_lock<std::mutex>& settings_lock);
 	static void DrawFoldersSettingsPage();
 	static void DrawAchievementsLoginWindow();
 	static void DrawAdvancedSettingsPage();
@@ -430,7 +427,8 @@ namespace FullscreenUI
 	//////////////////////////////////////////////////////////////////////////
 	static void DrawAchievementsWindow();
 	static void DrawAchievement(const Achievements::Achievement& cheevo);
-	static void DrawPrimedAchievements();
+	static void DrawPrimedAchievementsIcons();
+	static void DrawPrimedAchievementsList();
 	static void DrawLeaderboardsWindow();
 	static void DrawLeaderboardListEntry(const Achievements::Leaderboard& lboard);
 	static void DrawLeaderboardEntry(
@@ -568,10 +566,6 @@ bool FullscreenUI::Initialize()
 		SwitchToLanding();
 	}
 
-	// force vsync on so we don't run at thousands of fps
-	// Initialize is called on the GS thread, so we can access the display directly.
-	UpdateForcedVsync(VMManager::GetState() != VMState::Running);
-
 	return true;
 }
 
@@ -584,15 +578,6 @@ bool FullscreenUI::HasActiveWindow()
 {
 	return s_current_main_window != MainWindowType::None || s_save_state_selector_open || ImGuiFullscreen::IsChoiceDialogOpen() ||
 		   ImGuiFullscreen::IsFileSelectorOpen();
-}
-
-void FullscreenUI::UpdateForcedVsync(bool should_force)
-{
-	// force vsync on so we don't run at thousands of fps
-	const VsyncMode mode = EmuConfig.GetEffectiveVsyncMode();
-
-	// toss it through regardless of the mode, because options can change it
-	g_host_display->SetVSync((should_force && mode == VsyncMode::Off) ? VsyncMode::On : mode);
 }
 
 void FullscreenUI::CheckForConfigChanges(const Pcsx2Config& old_config)
@@ -636,12 +621,8 @@ void FullscreenUI::OnVMPaused()
 	if (!IsInitialized())
 		return;
 
-	GetMTGS().RunOnGSThread([]() {
-		if (!IsInitialized())
-			return;
-
-		UpdateForcedVsync(true);
-	});
+	// Force vsync on.
+	GetMTGS().UpdateVSyncMode();
 }
 
 void FullscreenUI::OnVMResumed()
@@ -649,12 +630,8 @@ void FullscreenUI::OnVMResumed()
 	if (!IsInitialized())
 		return;
 
-	GetMTGS().RunOnGSThread([]() {
-		if (!IsInitialized())
-			return;
-
-		UpdateForcedVsync(false);
-	});
+	// Restore game vsync.
+	GetMTGS().UpdateVSyncMode();
 }
 
 void FullscreenUI::OnVMDestroyed()
@@ -668,7 +645,7 @@ void FullscreenUI::OnVMDestroyed()
 
 		s_pause_menu_was_open = false;
 		SwitchToLanding();
-		UpdateForcedVsync(true);
+		GetMTGS().UpdateVSyncMode();
 	});
 }
 
@@ -787,8 +764,11 @@ void FullscreenUI::Render()
 
 #ifdef ENABLE_ACHIEVEMENTS
 	// Primed achievements must come first, because we don't want the pause screen to be behind them.
-	if (Achievements::GetPrimedAchievementCount() > 0)
-		DrawPrimedAchievements();
+	if (EmuConfig.Achievements.PrimedIndicators && s_current_main_window == MainWindowType::None &&
+		Achievements::GetPrimedAchievementCount() > 0)
+	{
+		DrawPrimedAchievementsIcons();
+	}
 #endif
 
 	switch (s_current_main_window)
@@ -902,7 +882,7 @@ void FullscreenUI::DestroyResources()
 
 ImGuiFullscreen::FileSelectorFilters FullscreenUI::GetDiscImageFilters()
 {
-	return {"*.bin", "*.iso", "*.cue", "*.chd", "*.cso", "*.gz", "*.elf", "*.irx", "*.m3u", "*.gs", "*.gs.xz", "*.gs.zst"};
+	return {"*.bin", "*.iso", "*.cue", "*.chd", "*.cso", "*.gz", "*.elf", "*.irx", "*.gs", "*.gs.xz", "*.gs.zst", "*.dump"};
 }
 
 void FullscreenUI::DoStartPath(const std::string& path, std::optional<s32> state_index, std::optional<bool> fast_boot)
@@ -2113,7 +2093,7 @@ void FullscreenUI::DrawSettingsWindow()
 				break;
 
 			case SettingsPage::Achievements:
-				DrawAchievementsSettingsPage();
+				DrawAchievementsSettingsPage(lock);
 				break;
 
 			case SettingsPage::Folders:
@@ -2187,7 +2167,7 @@ void FullscreenUI::DrawInterfaceSettingsPage()
 	MenuHeading("Behaviour");
 
 	DrawToggleSetting(bsi, ICON_FA_MAGIC " Inhibit Screensaver",
-		"Prevents the screen saver from activating and the host from sleeping while emulation is running.", "UI", "InhibitScreensaver",
+		"Prevents the screen saver from activating and the host from sleeping while emulation is running.", "EmuCore", "InhibitScreensaver",
 		true);
 #ifdef WITH_DISCORD_PRESENCE
 	DrawToggleSetting(bsi, "Enable Discord Presence", "Shows the game you are currently playing as part of your profile on Discord.", "UI",
@@ -2243,6 +2223,10 @@ void FullscreenUI::DrawInterfaceSettingsPage()
 		false);
 	DrawToggleSetting(bsi, ICON_FA_PLAY " Show Status Indicators",
 		"Shows indicators when fast forwarding, pausing, and other abnormal states are active.", "EmuCore/GS", "OsdShowIndicators", true);
+	DrawToggleSetting(bsi, ICON_FA_SLIDERS_H " Show Settings",
+		"Shows the current configuration in the bottom-right corner of the display.", "EmuCore/GS", "OsdShowSettings", false);
+	DrawToggleSetting(bsi, ICON_FA_GAMEPAD " Show Inputs",
+		"Shows the current controller state of the system in the bottom-left corner of the display.", "EmuCore/GS", "OsdShowInputs", false);
 
 	MenuHeading("Operations");
 	if (MenuButton(ICON_FA_FOLDER_MINUS " Reset Settings", "Resets configuration to defaults (excluding controller settings).",
@@ -2550,15 +2534,39 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 	static constexpr const char* s_deinterlacing_options[] = {"None", "Weave (Top Field First, Sawtooth)",
 		"Weave (Bottom Field First, Sawtooth)", "Bob (Top Field First)", "Bob (Bottom Field First)", "Blend (Top Field First, Half FPS)",
 		"Blend (Bottom Field First, Half FPS)", "Automatic (Default)"};
-	static constexpr const char* s_resolution_options[] = {
+	static const char* s_resolution_options[] = {
 		"Native (PS2)",
+		"1.25x Native",
+		"1.5x Native",
+		"1.75x Native",
 		"2x Native (~720p)",
+		"2.25x Native",
+		"2.5x Native",
+		"2.75x Native",
 		"3x Native (~1080p)",
+		"3.5x Native",
 		"4x Native (~1440p/2K)",
 		"5x Native (~1620p)",
 		"6x Native (~2160p/4K)",
 		"7x Native (~2520p)",
 		"8x Native (~2880p)",
+	};
+	static const char* s_resolution_values[] = {
+		"1",
+		"1.25",
+		"1.5",
+		"1.75",
+		"2",
+		"2.25",
+		"2.5",
+		"2.75",
+		"3",
+		"3.5",
+		"4",
+		"5",
+		"6",
+		"7",
+		"8",
 	};
 	static constexpr const char* s_mipmapping_options[] = {"Automatic (Default)", "Off", "Basic (Generated Mipmaps)", "Full (PS2 Mipmaps)"};
 	static constexpr const char* s_bilinear_options[] = {
@@ -2573,6 +2581,8 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 	static constexpr const char* s_anisotropic_filtering_values[] = {"0", "2", "4", "8", "16"};
 	static constexpr const char* s_preloading_options[] = {"None", "Partial", "Full (Hash Cache)"};
 	static constexpr const char* s_generic_options[] = {"Automatic (Default)", "Force Disabled", "Force Enabled"};
+	static constexpr const char* s_hw_download[] = {"Accurate (Recommended)", "Disable Readbacks (Synchronize GS Thread)",
+		"Unsynchronized (Non-Deterministic)", "Disabled (Ignore Transfers)"};
 
 	SettingsInterface* bsi = GetEditingSettingsInterface();
 
@@ -2626,15 +2636,14 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 	MenuHeading("Rendering");
 	if (is_hardware)
 	{
-		DrawIntListSetting(bsi, "Internal Resolution", "Multiplies the render resolution by the specified factor (upscaling).",
-			"EmuCore/GS", "upscale_multiplier", 1, s_resolution_options, std::size(s_resolution_options), 1);
+		DrawStringListSetting(bsi, "Internal Resolution", "Multiplies the render resolution by the specified factor (upscaling).",
+			"EmuCore/GS", "upscale_multiplier", "1.000000", s_resolution_options, s_resolution_values, std::size(s_resolution_options));
 		DrawIntListSetting(bsi, "Mipmapping", "Determines how mipmaps are used when rendering textures.", "EmuCore/GS", "mipmap_hw",
 			static_cast<int>(HWMipmapLevel::Automatic), s_mipmapping_options, std::size(s_mipmapping_options), -1);
 		DrawIntListSetting(bsi, "Bilinear Filtering", "Selects where bilinear filtering is utilized when rendering textures.", "EmuCore/GS",
 			"filter", static_cast<int>(BiFiltering::PS2), s_bilinear_options, std::size(s_bilinear_options));
 		DrawIntListSetting(bsi, "Trilinear Filtering", "Selects where trilinear filtering is utilized when rendering textures.",
-			"EmuCore/GS", "UserHacks_TriFilter", static_cast<int>(TriFiltering::Automatic), s_trilinear_options,
-			std::size(s_trilinear_options), -1);
+			"EmuCore/GS", "TriFilter", static_cast<int>(TriFiltering::Automatic), s_trilinear_options, std::size(s_trilinear_options), -1);
 		DrawStringListSetting(bsi, "Anisotropic Filtering", "Selects where anistropic filtering is utilized when rendering textures.",
 			"EmuCore/GS", "MaxAnisotropy", "0", s_anisotropic_filtering_entries, s_anisotropic_filtering_values,
 			std::size(s_anisotropic_filtering_entries));
@@ -2649,6 +2658,8 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 			"Uploads full textures to the GPU on use, rather than only the utilized regions. Can improve performance in some games.",
 			"EmuCore/GS", "texture_preloading", static_cast<int>(TexturePreloadingLevel::Off), s_preloading_options,
 			std::size(s_preloading_options));
+		DrawIntListSetting(bsi, "Hardware Download Mode", "Changes synchronization behavior for GS downloads.", "EmuCore/GS", "HWDownloadMode",
+			static_cast<int>(GSHardwareDownloadMode::Enabled), s_hw_download, std::size(s_hw_download));
 		DrawToggleSetting(bsi, "GPU Palette Conversion",
 			"Applies palettes to textures on the GPU instead of the CPU. Can result in speed improvements in some games.", "EmuCore/GS",
 			"paltex", false);
@@ -2775,9 +2786,6 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 	DrawToggleSetting(bsi, "Skip Presenting Duplicate Frames",
 		"Skips displaying frames that don't change in 25/30fps games. Can improve speed but increase input lag/make frame pacing worse.",
 		"EmuCore/GS", "SkipDuplicateFrames", false);
-	DrawToggleSetting(bsi, "Disable Hardware Readbacks",
-		"Skips thread synchronization for GS downloads. Can improve speed, but break graphical effects.", "EmuCore/GS",
-		"HWDisableReadbacks", false);
 	DrawIntListSetting(bsi, "Override Texture Barriers", "Forces texture barrier functionality to the specified value.", "EmuCore/GS",
 		"OverrideTextureBarriers", -1, s_generic_options, std::size(s_generic_options), -1);
 	DrawIntListSetting(bsi, "Override Geometry Shaders", "Forces geometry shader functionality to the specified value.", "EmuCore/GS",
@@ -2845,7 +2853,7 @@ void FullscreenUI::DrawAudioSettingsPage()
 
 	MenuHeading("Runtime Settings");
 	DrawIntRangeSetting(bsi, ICON_FA_VOLUME_UP " Output Volume", "Applies a global volume modifier to all sound produced by the game.",
-		"SPU2/Mixing", "FinalVolume", 100, 0, 100, "%d%%");
+		"SPU2/Mixing", "FinalVolume", 100, 0, 200, "%d%%");
 
 	MenuHeading("Mixing Settings");
 	DrawIntListSetting(bsi, ICON_FA_MUSIC " Interpolation Mode", "Determines how ADPCM samples are interpolated to the target pitch.",
@@ -3485,7 +3493,7 @@ void FullscreenUI::DrawFoldersSettingsPage()
 
 #ifndef ENABLE_ACHIEVEMENTS
 
-void FullscreenUI::DrawAchievementsSettingsPage()
+void FullscreenUI::DrawAchievementsSettingsPage(std::unique_lock<std::mutex>& settings_lock)
 {
 	BeginMenuButtons();
 	ActiveButton(ICON_FA_BAN " This build was not compiled with Achievements support.", false, false,
@@ -3782,6 +3790,12 @@ void FullscreenUI::DrawPauseMenu(MainWindowType type)
 
 		EndFullscreenWindow();
 	}
+
+#ifdef ENABLE_ACHIEVEMENTS
+	// Primed achievements must come first, because we don't want the pause screen to be behind them.
+	if (Achievements::GetPrimedAchievementCount() > 0)
+		DrawPrimedAchievementsList();
+#endif
 }
 
 void FullscreenUI::InitializePlaceholderSaveStateListEntry(
@@ -3841,7 +3855,7 @@ u32 FullscreenUI::PopulateSaveStateListEntries(const std::string& title, const s
 {
 	ClearSaveStateEntryList();
 
-	for (s32 i = 0; i <= MAX_SAVE_STATE_SLOTS; i++)
+	for (s32 i = 1; i <= VMManager::NUM_SAVE_STATE_SLOTS; i++)
 	{
 		SaveStateListEntry li;
 		if (InitializeSaveStateListEntry(&li, title, serial, crc, i) || !s_save_state_selector_loading)
@@ -4048,9 +4062,6 @@ void FullscreenUI::DrawResumeStateSelector()
 	bool is_open = true;
 	if (ImGui::BeginPopupModal("Load Resume State", &is_open, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize))
 	{
-		static constexpr float max_image_width = 96.0f;
-		static constexpr float max_image_height = 96.0f;
-
 		const SaveStateListEntry& entry = s_save_state_selector_slots.front();
 		ImGui::TextWrapped("A resume save state created at %s was found.\n\nDo you want to load this save and continue?",
 			TimeToPrintableString(entry.timestamp).c_str());
@@ -4541,15 +4552,16 @@ void FullscreenUI::HandleGameListOptions(const GameList::Entry* entry)
 		{ICON_FA_WINDOW_CLOSE " Close Menu", false},
 	};
 
-	OpenChoiceDialog(
-		entry->title.c_str(), false, std::move(options), [entry_path = entry->path](s32 index, const std::string& title, bool checked) {
+	const bool has_resume_state = VMManager::HasSaveStateInSlot(entry->serial.c_str(), entry->crc, -1);
+	OpenChoiceDialog(entry->title.c_str(), false, std::move(options),
+		[has_resume_state, entry_path = entry->path](s32 index, const std::string& title, bool checked) {
 			switch (index)
 			{
 				case 0: // Open Game Properties
 					SwitchToGameSettings(entry_path);
 					break;
 				case 1: // Resume Game
-					DoStartPath(entry_path, -1);
+					DoStartPath(entry_path, has_resume_state ? std::optional<s32>(-1) : std::optional<s32>());
 					break;
 				case 2: // Load State
 					OpenLoadStateSelectorForGame(entry_path);
@@ -5312,7 +5324,7 @@ void FullscreenUI::DrawAchievementsWindow()
 	EndFullscreenWindow();
 }
 
-void FullscreenUI::DrawPrimedAchievements()
+void FullscreenUI::DrawPrimedAchievementsIcons()
 {
 	const ImVec2 image_size(LayoutScale(LAYOUT_MENU_BUTTON_HEIGHT, LAYOUT_MENU_BUTTON_HEIGHT));
 	const float spacing = LayoutScale(10.0f);
@@ -5327,7 +5339,7 @@ void FullscreenUI::DrawPrimedAchievements()
 		if (!achievement.primed)
 			return true;
 
-		const std::string& badge_path = Achievements::GetAchievementBadgePath(achievement);
+		const std::string& badge_path = Achievements::GetAchievementBadgePath(achievement, true, true);
 		if (badge_path.empty())
 			return true;
 
@@ -5338,6 +5350,77 @@ void FullscreenUI::DrawPrimedAchievements()
 		ImDrawList* dl = ImGui::GetBackgroundDrawList();
 		dl->AddImage(badge->GetHandle(), position, position + image_size);
 		position.x -= x_advance;
+		return true;
+	});
+}
+
+void FullscreenUI::DrawPrimedAchievementsList()
+{
+	auto lock = Achievements::GetLock();
+	const u32 primed_count = Achievements::GetPrimedAchievementCount();
+
+	const ImGuiIO& io = ImGui::GetIO();
+	ImFont* font = g_medium_font;
+
+	const ImVec2 image_size(LayoutScale(LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY, LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY));
+	const float margin = LayoutScale(10.0f);
+	const float spacing = LayoutScale(10.0f);
+	const float padding = LayoutScale(10.0f);
+
+	const float max_text_width = LayoutScale(300.0f);
+	const float row_width = max_text_width + padding + padding + image_size.x + spacing;
+	const float title_height = padding + font->FontSize + padding;
+	const ImVec2 box_min(io.DisplaySize.x - row_width - margin, margin);
+	const ImVec2 box_max(box_min.x + row_width, box_min.y + title_height + (static_cast<float>(primed_count) * (image_size.y + padding)));
+
+	ImDrawList* dl = ImGui::GetBackgroundDrawList();
+	dl->AddRectFilled(box_min, box_max, IM_COL32(0x21, 0x21, 0x21, 200), LayoutScale(10.0f));
+	dl->AddText(font, font->FontSize, ImVec2(box_min.x + padding, box_min.y + padding), IM_COL32(255, 255, 255, 255),
+		"Active Challenge Achievements");
+
+	const float y_advance = image_size.y + spacing;
+	const float acheivement_name_offset = (image_size.y - font->FontSize) / 2.0f;
+	const float max_non_ellipised_text_width = max_text_width - LayoutScale(10.0f);
+	ImVec2 position(box_min.x + padding, box_min.y + title_height);
+
+	Achievements::EnumerateAchievements([font, &image_size, max_text_width, spacing, y_advance, acheivement_name_offset,
+											max_non_ellipised_text_width, &position](const Achievements::Achievement& achievement) {
+		if (!achievement.primed)
+			return true;
+
+		const std::string& badge_path = Achievements::GetAchievementBadgePath(achievement, true, true);
+		if (badge_path.empty())
+			return true;
+
+		HostDisplayTexture* badge = GetCachedTextureAsync(badge_path.c_str());
+		if (!badge)
+			return true;
+
+		ImDrawList* dl = ImGui::GetBackgroundDrawList();
+		dl->AddImage(badge->GetHandle(), position, position + image_size);
+
+		const char* achievement_title = achievement.title.c_str();
+		const char* achievement_tile_end = achievement_title + achievement.title.length();
+		const char* remaining_text = nullptr;
+		const ImVec2 text_width(font->CalcTextSizeA(
+			font->FontSize, max_non_ellipised_text_width, 0.0f, achievement_title, achievement_tile_end, &remaining_text));
+		const ImVec2 text_position(position.x + image_size.x + spacing, position.y + acheivement_name_offset);
+		const ImVec4 text_bbox(text_position.x, text_position.y, text_position.x + max_text_width, text_position.y + image_size.y);
+		const u32 text_color = IM_COL32(255, 255, 255, 255);
+
+		if (remaining_text < achievement_tile_end)
+		{
+			dl->AddText(font, font->FontSize, text_position, text_color, achievement_title, remaining_text, 0.0f, &text_bbox);
+			dl->AddText(font, font->FontSize, ImVec2(text_position.x + text_width.x, text_position.y), text_color, "...", nullptr, 0.0f,
+				&text_bbox);
+		}
+		else
+		{
+			dl->AddText(font, font->FontSize, text_position, text_color, achievement_title, achievement_title + achievement.title.length(),
+				0.0f, &text_bbox);
+		}
+
+		position.y += y_advance;
 		return true;
 	});
 }
@@ -5522,7 +5605,6 @@ void FullscreenUI::DrawLeaderboardsWindow()
 			float left = bb.Min.x + padding + image_height + spacing;
 			float right = bb.Max.x - padding;
 			float top = bb.Min.y + padding;
-			ImVec2 text_size;
 
 			const u32 leaderboard_count = Achievements::GetLeaderboardCount();
 
@@ -5687,7 +5769,7 @@ void FullscreenUI::DrawLeaderboardsWindow()
 		s_open_leaderboard_id.reset();
 }
 
-void FullscreenUI::DrawAchievementsSettingsPage()
+void FullscreenUI::DrawAchievementsSettingsPage(std::unique_lock<std::mutex>& settings_lock)
 {
 #ifdef ENABLE_RAINTEGRATION
 	if (Achievements::IsUsingRAIntegration())
@@ -5700,16 +5782,13 @@ void FullscreenUI::DrawAchievementsSettingsPage()
 	}
 #endif
 
-	const auto lock = Achievements::GetLock();
-	if (Achievements::IsActive())
-		Achievements::ProcessPendingHTTPRequestsFromGSThread();
-
 	SettingsInterface* bsi = GetEditingSettingsInterface();
+	bool check_challenge_state = false;
 
 	BeginMenuButtons();
 
 	MenuHeading("Settings");
-	DrawToggleSetting(bsi, ICON_FA_TROPHY "  Enable Achievements",
+	check_challenge_state = DrawToggleSetting(bsi, ICON_FA_TROPHY "  Enable Achievements",
 		"When enabled and logged in, PCSX2 will scan for achievements on startup.", "Achievements", "Enabled", false);
 
 	const bool enabled = bsi->GetBoolValue("Achievements", "Enabled", false);
@@ -5718,18 +5797,17 @@ void FullscreenUI::DrawAchievementsSettingsPage()
 	DrawToggleSetting(bsi, ICON_FA_USER_FRIENDS " Rich Presence",
 		"When enabled, rich presence information will be collected and sent to the server where supported.", "Achievements", "RichPresence",
 		true, enabled);
-	if (DrawToggleSetting(bsi, ICON_FA_HARD_HAT " Hardcore Mode",
-			"\"Challenge\" mode for achievements, including leaderboard tracking. Disables save state, cheats, and slowdown functions.",
-			"Achievements", "ChallengeMode", false, enabled))
-	{
-		if (VMManager::HasValidVM() && bsi->GetBoolValue("Achievements", "ChallengeMode", false))
-			ShowToast(std::string(), "Hardcore mode will be enabled on next game restart.");
-	}
+	check_challenge_state |= DrawToggleSetting(bsi, ICON_FA_HARD_HAT " Hardcore Mode",
+		"\"Challenge\" mode for achievements, including leaderboard tracking. Disables save state, cheats, and slowdown functions.",
+		"Achievements", "ChallengeMode", false, enabled);
 	DrawToggleSetting(bsi, ICON_FA_LIST_OL " Leaderboards", "Enables tracking and submission of leaderboards in supported games.",
 		"Achievements", "Leaderboards", true, enabled && challenge);
 	DrawToggleSetting(bsi, ICON_FA_HEADPHONES " Sound Effects",
 		"Plays sound effects for events such as achievement unlocks and leaderboard submissions.", "Achievements", "SoundEffects", true,
 		enabled);
+	DrawToggleSetting(bsi, ICON_FA_MAGIC " Show Challenge Indicators",
+		"Shows icons in the lower-right corner of the screen when a challenge/primed achievement is active.", "Achievements",
+		"PrimedIndicators", true, enabled);
 	DrawToggleSetting(bsi, ICON_FA_MEDAL " Test Unofficial Achievements",
 		"When enabled, PCSX2 will list achievements from unofficial sets. These achievements are not tracked by RetroAchievements.",
 		"Achievements", "UnofficialTestMode", false, enabled);
@@ -5737,35 +5815,58 @@ void FullscreenUI::DrawAchievementsSettingsPage()
 		"When enabled, PCSX2 will assume all achievements are locked and not send any unlock notifications to the server.", "Achievements",
 		"TestMode", false, enabled);
 
-	MenuHeading("Account");
-	if (Achievements::IsLoggedIn())
+	// Check for challenge mode just being enabled.
+	if (check_challenge_state && enabled && bsi->GetBoolValue("Achievements", "ChallengeMode", false) && VMManager::HasValidVM())
 	{
-		ImGui::PushStyleColor(ImGuiCol_TextDisabled, ImGui::GetStyle().Colors[ImGuiCol_Text]);
-		ActiveButton(fmt::format(ICON_FA_USER "  Username: {}", Achievements::GetUsername()).c_str(), false, false,
-			LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
+		ImGuiFullscreen::OpenConfirmMessageDialog("Reset System",
+			"Hardcore mode will not be enabled until the system is reset. Do you want to reset the system now?", [](bool reset) {
+				if (!VMManager::HasValidVM())
+					return;
 
-		const u64 ts = StringUtil::FromChars<u64>(bsi->GetStringValue("Achievements", "LoginTimestamp", "0")).value_or(0);
-		ActiveButton(fmt::format(ICON_FA_CLOCK "  Login token generated on {}", TimeToPrintableString(static_cast<time_t>(ts))).c_str(),
-			false, false, LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
-		ImGui::PopStyleColor();
+				if (reset)
+					DoReset();
+			});
+	}
 
-		if (MenuButton(ICON_FA_KEY "  Logout", "Logs out of RetroAchievements."))
+	// Potential deadlock here: when we enable achievements, CPU thread reads settings, releases lock, then there's a brief
+	// time when we can progress here and get the setting lock, by the time it goes to read the username out of settings,
+	// we've got it here, but can't get the achievements lock. So only hold one at once.
+	const u64 ts = StringUtil::FromChars<u64>(bsi->GetStringValue("Achievements", "LoginTimestamp", "0")).value_or(0);
+	settings_lock.unlock();
+	{
+		const auto achievements_lock = Achievements::GetLock();
+		if (Achievements::IsActive())
+			Achievements::ProcessPendingHTTPRequestsFromGSThread();
+
+		MenuHeading("Account");
+		if (Achievements::IsLoggedIn())
 		{
-			Host::RunOnCPUThread([]() { Achievements::Logout(); });
+			ImGui::PushStyleColor(ImGuiCol_TextDisabled, ImGui::GetStyle().Colors[ImGuiCol_Text]);
+			ActiveButton(fmt::format(ICON_FA_USER "  Username: {}", Achievements::GetUsername()).c_str(), false, false,
+				LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
+
+			ActiveButton(fmt::format(ICON_FA_CLOCK "  Login token generated on {}", TimeToPrintableString(static_cast<time_t>(ts))).c_str(),
+				false, false, LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
+			ImGui::PopStyleColor();
+
+			if (MenuButton(ICON_FA_KEY "  Logout", "Logs out of RetroAchievements."))
+			{
+				Host::RunOnCPUThread([]() { Achievements::Logout(); });
+			}
 		}
-	}
-	else if (Achievements::IsActive())
-	{
-		ActiveButton(ICON_FA_USER "  Not Logged In", false, false, ImGuiFullscreen::LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
+		else if (Achievements::IsActive())
+		{
+			ActiveButton(ICON_FA_USER "  Not Logged In", false, false, ImGuiFullscreen::LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
 
-		if (MenuButton(ICON_FA_KEY "  Login", "Logs in to RetroAchievements."))
-			ImGui::OpenPopup("Achievements Login");
+			if (MenuButton(ICON_FA_KEY "  Login", "Logs in to RetroAchievements."))
+				ImGui::OpenPopup("Achievements Login");
 
-		DrawAchievementsLoginWindow();
-	}
-	else
-	{
-		ActiveButton(ICON_FA_USER "  Achievements are disabled.", false, false, ImGuiFullscreen::LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
+			DrawAchievementsLoginWindow();
+		}
+		else
+		{
+			ActiveButton(ICON_FA_USER "  Achievements are disabled.", false, false, ImGuiFullscreen::LAYOUT_MENU_BUTTON_HEIGHT_NO_SUMMARY);
+		}
 	}
 
 	MenuHeading("Current Game");
@@ -5800,6 +5901,8 @@ void FullscreenUI::DrawAchievementsSettingsPage()
 	}
 
 	EndMenuButtons();
+
+	settings_lock.lock();
 }
 
 void FullscreenUI::DrawAchievementsLoginWindow()

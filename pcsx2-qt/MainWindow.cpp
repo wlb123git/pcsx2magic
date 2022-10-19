@@ -56,13 +56,18 @@
 #include "svnrev.h"
 #include "Tools/InputRecording/NewInputRecordingDlg.h"
 
+#ifdef _WIN32
+#include "common/RedtapeWindows.h"
+#include <Dbt.h>
+#endif
+
 #ifdef ENABLE_RAINTEGRATION
 #include "pcsx2/Frontend/Achievements.h"
 #endif
 
 
 static constexpr char OPEN_FILE_FILTER[] =
-	QT_TRANSLATE_NOOP("MainWindow", "All File Types (*.bin *.iso *.cue *.chd *.cso *.gz *.elf *.irx *.m3u *.gs *.gs.xz *.gs.zst *.dump);;"
+	QT_TRANSLATE_NOOP("MainWindow", "All File Types (*.bin *.iso *.cue *.chd *.cso *.gz *.elf *.irx *.gs *.gs.xz *.gs.zst *.dump);;"
 									"Single-Track Raw Images (*.bin *.iso);;"
 									"Cue Sheets (*.cue);;"
 									"MAME CHD Images (*.chd);;"
@@ -70,7 +75,6 @@ static constexpr char OPEN_FILE_FILTER[] =
 									"GZ Images (*.gz);;"
 									"ELF Executables (*.elf);;"
 									"IRX Executables (*.irx);;"
-									"Playlists (*.m3u);;"
 									"GS Dumps (*.gs *.gs.xz *.gs.zst);;"
 									"Block Dumps (*.dump)");
 
@@ -123,6 +127,9 @@ MainWindow::~MainWindow()
 	// we compare here, since recreate destroys the window later
 	if (g_main_window == this)
 		g_main_window = nullptr;
+#ifdef _WIN32
+	unregisterForDeviceNotifications();
+#endif
 #ifdef __APPLE__
 	CocoaTools::RemoveThemeChangeHandler(this);
 #endif
@@ -148,6 +155,10 @@ void MainWindow::initialize()
 	switchToGameListView();
 	updateWindowTitle();
 	updateSaveStateMenus(QString(), QString(), 0);
+
+#ifdef _WIN32
+	registerForDeviceNotifications();
+#endif
 }
 
 // TODO: Figure out how to set this in the .ui file
@@ -424,6 +435,9 @@ void MainWindow::recreate()
 	if (s_vm_valid)
 		requestShutdown(false, true, EmuConfig.SaveStateOnShutdown);
 
+	// We need to close input sources, because e.g. DInput uses our window handle.
+	g_emu_thread->closeInputSources();
+
 	close();
 	g_main_window = nullptr;
 
@@ -432,6 +446,9 @@ void MainWindow::recreate()
 	new_main_window->refreshGameList(false);
 	new_main_window->show();
 	deleteLater();
+
+	// Reload the sources we just closed.
+	g_emu_thread->reloadInputSources();
 }
 
 void MainWindow::recreateSettings()
@@ -1023,7 +1040,10 @@ bool MainWindow::shouldHideMouseCursor() const
 
 bool MainWindow::shouldHideMainWindow() const
 {
-	return Host::GetBaseBoolSettingValue("UI", "HideMainWindowWhenRunning", false) || isRenderingFullscreen() || QtHost::InNoGUIMode();
+	// NOTE: We can't use isRenderingToMain() here, because this happens post-fullscreen-switch.
+	return Host::GetBaseBoolSettingValue("UI", "HideMainWindowWhenRunning", false) ||
+		   (g_emu_thread->shouldRenderToMain() && isRenderingFullscreen()) ||
+		   QtHost::InNoGUIMode();
 }
 
 void MainWindow::switchToGameListView()
@@ -1179,6 +1199,11 @@ void MainWindow::checkForSettingChanges()
 		m_display_widget->updateRelativeMode(s_vm_valid && !s_vm_paused);
 
 	updateWindowState();
+}
+
+std::optional<WindowInfo> MainWindow::getWindowInfo()
+{
+	return QtUtils::GetWindowInfoForWidget(this);
 }
 
 void Host::InvalidateSaveStateCache()
@@ -1803,6 +1828,48 @@ void MainWindow::dropEvent(QDropEvent* event)
 	}
 }
 
+void MainWindow::registerForDeviceNotifications()
+{
+#ifdef _WIN32
+	// We use these notifications to detect when a controller is connected or disconnected.
+	DEV_BROADCAST_DEVICEINTERFACE_W filter = {sizeof(DEV_BROADCAST_DEVICEINTERFACE_W), DBT_DEVTYP_DEVICEINTERFACE};
+	m_device_notification_handle = RegisterDeviceNotificationW((HANDLE)winId(), &filter,
+		DEVICE_NOTIFY_WINDOW_HANDLE | DEVICE_NOTIFY_ALL_INTERFACE_CLASSES);
+#endif
+}
+
+void MainWindow::unregisterForDeviceNotifications()
+{
+#ifdef _WIN32
+	if (!m_device_notification_handle)
+		return;
+
+	UnregisterDeviceNotification(static_cast<HDEVNOTIFY>(m_device_notification_handle));
+	m_device_notification_handle = nullptr;
+#endif
+}
+
+#ifdef _WIN32
+
+bool MainWindow::nativeEvent(const QByteArray& eventType, void* message, qintptr* result)
+{
+	static constexpr const char win_type[] = "windows_generic_MSG";
+	if (eventType == QByteArray(win_type, sizeof(win_type) - 1))
+	{
+		const MSG* msg = static_cast<const MSG*>(message);
+		if (msg->message == WM_DEVICECHANGE && msg->wParam == DBT_DEVNODES_CHANGED)
+		{
+			g_emu_thread->reloadInputDevices();
+			*result = 1;
+			return true;
+		}
+	}
+
+	return QMainWindow::nativeEvent(eventType, message, result);
+}
+
+#endif
+
 DisplayWidget* MainWindow::createDisplay(bool fullscreen, bool render_to_main)
 {
 	DevCon.WriteLn("createDisplay(%u, %u)", static_cast<u32>(fullscreen), static_cast<u32>(render_to_main));
@@ -1828,8 +1895,7 @@ DisplayWidget* MainWindow::createDisplay(bool fullscreen, bool render_to_main)
 
 	g_emu_thread->connectDisplaySignals(m_display_widget);
 
-	if (!g_host_display->CreateRenderDevice(wi.value(), Host::GetStringSettingValue("EmuCore/GS", "Adapter", ""), EmuConfig.GetEffectiveVsyncMode(),
-			Host::GetBoolSettingValue("EmuCore/GS", "ThreadedPresentation", false), Host::GetBoolSettingValue("EmuCore/GS", "UseDebugDevice", false)))
+	if (!g_host_display->CreateDevice(wi.value()))
 	{
 		QMessageBox::critical(this, tr("Error"), tr("Failed to create host display device context."));
 		destroyDisplayWidget(true);
@@ -1852,7 +1918,7 @@ DisplayWidget* MainWindow::createDisplay(bool fullscreen, bool render_to_main)
 	m_display_widget->updateCursor(s_vm_valid && !s_vm_paused);
 	m_display_widget->setFocus();
 
-	g_host_display->DoneRenderContextCurrent();
+	g_host_display->DoneCurrent();
 	return m_display_widget;
 }
 
@@ -1898,12 +1964,13 @@ DisplayWidget* MainWindow::updateDisplay(bool fullscreen, bool render_to_main, b
 		m_display_widget->setShouldHideCursor(shouldHideMouseCursor());
 		m_display_widget->updateRelativeMode(s_vm_valid && !s_vm_paused);
 		m_display_widget->updateCursor(s_vm_valid && !s_vm_paused);
+		updateWindowState();
 
 		QCoreApplication::processEvents(QEventLoop::ExcludeUserInputEvents);
 		return m_display_widget;
 	}
 
-	g_host_display->DestroyRenderSurface();
+	g_host_display->DestroySurface();
 
 	destroyDisplayWidget(surfaceless);
 
@@ -1923,7 +1990,7 @@ DisplayWidget* MainWindow::updateDisplay(bool fullscreen, bool render_to_main, b
 
 	g_emu_thread->connectDisplaySignals(m_display_widget);
 
-	if (!g_host_display->ChangeRenderWindow(wi.value()))
+	if (!g_host_display->ChangeWindow(wi.value()))
 		pxFailRel("Failed to recreate surface on new widget.");
 
 	if (is_exclusive_fullscreen)
@@ -2397,6 +2464,7 @@ void MainWindow::populateLoadStateMenu(QMenu* menu, const QString& filename, con
 		return;
 
 	const bool is_right_click_menu = (menu != m_ui.menuLoadState);
+	bool has_any_states = false;
 
 	QAction* action = menu->addAction(is_right_click_menu ? tr("Load State File...") : tr("Load From File..."));
 	connect(action, &QAction::triggered, [this, filename]() {
@@ -2406,6 +2474,8 @@ void MainWindow::populateLoadStateMenu(QMenu* menu, const QString& filename, con
 
 		loadSaveStateFile(filename, path);
 	});
+
+	QAction* delete_save_states_action = menu->addAction(tr("Delete Save States..."));
 
 	// don't include undo in the right click menu
 	if (!is_right_click_menu)
@@ -2429,10 +2499,11 @@ void MainWindow::populateLoadStateMenu(QMenu* menu, const QString& filename, con
 
 			// Make bold to indicate it's the default choice when double-clicking
 			QtUtils::MarkActionAsDefault(action);
+			has_any_states = true;
 		}
 	}
 
-	for (s32 i = 1; i <= NUM_SAVE_STATE_SLOTS; i++)
+	for (s32 i = 1; i <= VMManager::NUM_SAVE_STATE_SLOTS; i++)
 	{
 		FILESYSTEM_STAT_DATA sd;
 		state_filename = VMManager::GetSaveStateFileName(game_serial_utf8.constData(), crc, i);
@@ -2441,6 +2512,25 @@ void MainWindow::populateLoadStateMenu(QMenu* menu, const QString& filename, con
 
 		action = menu->addAction(tr("Load Slot %1 (%2)").arg(i).arg(formatTimestampForSaveStateMenu(sd.ModificationTime)));
 		connect(action, &QAction::triggered, [this, i]() { loadSaveStateSlot(i); });
+		has_any_states = true;
+	}
+
+	delete_save_states_action->setEnabled(has_any_states);
+	if (has_any_states)
+	{
+		connect(delete_save_states_action, &QAction::triggered, this, [this, serial, crc] {
+			if (QMessageBox::warning(
+					this, tr("Delete Save States"),
+					tr("Are you sure you want to delete all save states for %1?\n\nThe saves will not be recoverable.")
+						.arg(serial),
+					QMessageBox::Yes, QMessageBox::No) != QMessageBox::Yes)
+			{
+				return;
+			}
+
+			const u32 deleted = VMManager::DeleteSaveStates(serial.toUtf8().constData(), crc, true);
+			QMessageBox::information(this, tr("Delete Save States"), tr("%1 save states deleted.").arg(deleted));
+		});
 	}
 }
 
@@ -2460,7 +2550,7 @@ void MainWindow::populateSaveStateMenu(QMenu* menu, const QString& serial, quint
 	menu->addSeparator();
 
 	const QByteArray game_serial_utf8(serial.toUtf8());
-	for (s32 i = 1; i <= NUM_SAVE_STATE_SLOTS; i++)
+	for (s32 i = 1; i <= VMManager::NUM_SAVE_STATE_SLOTS; i++)
 	{
 		std::string filename(VMManager::GetSaveStateFileName(game_serial_utf8.constData(), crc, i));
 		FILESYSTEM_STAT_DATA sd;

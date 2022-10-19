@@ -22,6 +22,7 @@
 #include "Frontend/InputManager.h"
 #include "GS.h"
 #include "Host.h"
+#include "HostDisplay.h"
 #include "IconsFontAwesome5.h"
 #include "Recording/InputRecordingControls.h"
 #include "VMManager.h"
@@ -41,10 +42,11 @@ void CommonHost::Internal::ResetVMHotkeyState()
 
 static void HotkeyAdjustTargetSpeed(double delta)
 {
-	EmuConfig.Framerate.NominalScalar = EmuConfig.GS.LimitScalar + delta;
+	const double min_speed = Achievements::ChallengeModeActive() ? 1.0 : 0.1;
+	EmuConfig.Framerate.NominalScalar = std::max(min_speed, EmuConfig.GS.LimitScalar + delta);
 	VMManager::SetLimiterMode(LimiterModeType::Nominal);
 	gsUpdateFrequency(EmuConfig);
-	GetMTGS().SetVSync(EmuConfig.GetEffectiveVsyncMode());
+	GetMTGS().UpdateVSyncMode();
 	Host::AddIconOSDMessage("SpeedChanged", ICON_FA_CLOCK,
 		fmt::format("Target speed set to {:.0f}%.", std::round(EmuConfig.Framerate.NominalScalar * 100.0)), 5.0f);
 }
@@ -150,7 +152,7 @@ DEFINE_HOTKEY("ToggleFrameLimit", "System", "Toggle Frame Limit", [](s32 pressed
 			(EmuConfig.LimiterMode != LimiterModeType::Unlimited) ? LimiterModeType::Unlimited : LimiterModeType::Nominal);
 	}
 })
-DEFINE_HOTKEY("ToggleTurbo", "System", "Toggle Turbo", [](s32 pressed) {
+DEFINE_HOTKEY("ToggleTurbo", "System", "Toggle Turbo / Fast Forward", [](s32 pressed) {
 	if (!pressed && VMManager::HasValidVM())
 	{
 		VMManager::SetLimiterMode((EmuConfig.LimiterMode != LimiterModeType::Turbo) ? LimiterModeType::Turbo : LimiterModeType::Nominal);
@@ -162,7 +164,7 @@ DEFINE_HOTKEY("ToggleSlowMotion", "System", "Toggle Slow Motion", [](s32 pressed
 		VMManager::SetLimiterMode((EmuConfig.LimiterMode != LimiterModeType::Slomo) ? LimiterModeType::Slomo : LimiterModeType::Nominal);
 	}
 })
-DEFINE_HOTKEY("HoldTurbo", "System", "Turbo (Hold)", [](s32 pressed) {
+DEFINE_HOTKEY("HoldTurbo", "System", "Turbo / Fast Forward (Hold)", [](s32 pressed) {
 	if (!VMManager::HasValidVM())
 		return;
 	if (pressed > 0 && !s_limiter_mode_prior_to_hold_interaction.has_value())

@@ -162,7 +162,6 @@ void SysCoreThread::ResetQuick()
 void SysCoreThread::Reset()
 {
 	ResetQuick();
-	GetVmMemory().DecommitAll();
 	SysClearExecutionCache();
 	sApp.PostAppMethod(&Pcsx2App::leaveDebugMode);
 	g_FrameCount = 0;
@@ -199,7 +198,7 @@ void SysCoreThread::ApplySettings(const Pcsx2Config& src)
 	{
 		Console.WriteLn("Applying GS settings...");
 		GetMTGS().ApplySettings();
-		GetMTGS().SetVSync(EmuConfig.GetEffectiveVsyncMode());
+		GetMTGS().UpdateVSyncMode();
 	}
 }
 
@@ -217,8 +216,6 @@ void SysCoreThread::_reset_stuff_as_needed()
 	// Note that resetting recompilers along with the virtual machine is only really needed
 	// because of changes to the TLB.  We don't actually support the TLB, however, so rec
 	// resets aren't in fact *needed* ... yet.  But might as well, no harm.  --air
-
-	GetVmMemory().CommitAll();
 
 	if (m_resetVirtualMachine || m_resetRecompilers || m_resetProfilers)
 	{
@@ -242,7 +239,7 @@ void SysCoreThread::_reset_stuff_as_needed()
 
 	if (m_resetVsyncTimers)
 	{
-		GetMTGS().SetVSync(EmuConfig.GetEffectiveVsyncMode());
+		GetMTGS().UpdateVSyncMode();
 		UpdateVSyncRate();
 		frameLimitReset();
 

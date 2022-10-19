@@ -502,7 +502,7 @@ struct PSMain
 
 	float4 sample_depth(float2 st)
 	{
-		float2 uv_f = float2(clamp_wrap_uv_depth(ushort2(st))) * (float2(SCALING_FACTOR) * float2(1.f / 16.f));
+		float2 uv_f = float2(clamp_wrap_uv_depth(ushort2(st))) * (SCALING_FACTOR * float2(1.f / 16.f));
 		ushort2 uv = ushort2(uv_f);
 
 		float4 t = float4(0);
@@ -767,7 +767,7 @@ struct PSMain
 	void ps_fbmask(thread float4& C)
 	{
 		if (PS_FBMASK)
-			C = float4((uint4(C) & ~cb.fbmask) | (uint4(current_color * 255.5) & cb.fbmask));
+			C = float4((uint4(int4(C)) & (cb.fbmask ^ 0xff)) | (uint4(current_color * 255.5) & cb.fbmask));
 	}
 
 	void ps_dither(thread float4& C)
@@ -778,14 +778,14 @@ struct PSMain
 		if (PS_DITHER == 2)
 			fpos = ushort2(in.p.xy);
 		else
-			fpos = ushort2(in.p.xy / float2(SCALING_FACTOR));
+			fpos = ushort2(in.p.xy / SCALING_FACTOR);
 		C.rgb += cb.dither_matrix[fpos.y & 3][fpos.x & 3];
 	}
 
 	void ps_color_clamp_wrap(thread float4& C)
 	{
 		// When dithering the bottom 3 bits become meaningless and cause lines in the picture so we need to limit the color depth on dithered items
-		if (!SW_BLEND && !PS_DITHER)
+		if (!SW_BLEND && !PS_DITHER && !PS_FBMASK)
 			return;
 
 		// Correct the Color value based on the output format
@@ -801,7 +801,7 @@ struct PSMain
 		if (PS_DFMT == FMT_16 && PS_BLEND_MIX == 0)
 			// In 16 bits format, only 5 bits of colors are used. It impacts shadows computation of Castlevania
 			C.rgb = float3(short3(C.rgb) & 0xF8);
-		else if (PS_COLCLIP && !PS_HDR)
+		else if (PS_COLCLIP || PS_HDR)
 			C.rgb = float3(short3(C.rgb) & 0xFF);
 	}
 
@@ -835,8 +835,9 @@ struct PSMain
 
 			// As/Af clamp alpha for Blend mix
 			// We shouldn't clamp blend mix with clr1 as we want alpha higher
+			float C_clamped = C;
 			if (PS_BLEND_MIX > 0 && PS_CLR_HW != 1)
-				C = min(C, 1.f);
+				C_clamped = min(C_clamped, 1.f);
 
 			if (PS_BLEND_A == PS_BLEND_B)
 				Color.rgb = D;
@@ -848,9 +849,9 @@ struct PSMain
 			// Based on the scripts at the above link, the ideal choice for Intel GPUs is 126/256, AMD 120/256.  Nvidia is a lost cause.
 			// 124/256 seems like a reasonable compromise, providing the correct answer 99.3% of the time on Intel (vs 99.6% for 126/256), and 97% of the time on AMD (vs 97.4% for 120/256).
 			else if (PS_BLEND_MIX == 2)
-				Color.rgb = ((A - B) * C + D) + (124.f/256.f);
+				Color.rgb = ((A - B) * C_clamped + D) + (124.f/256.f);
 			else if (PS_BLEND_MIX == 1)
-				Color.rgb = ((A - B) * C + D) - (124.f/256.f);
+				Color.rgb = ((A - B) * C_clamped + D) - (124.f/256.f);
 			else
 				Color.rgb = trunc((A - B) * C + D);
 
@@ -867,6 +868,16 @@ struct PSMain
 				float min_color = min(min(Color.r, Color.g), Color.b);
 				float alpha_compensate = max(1.f, min_color / 255.f);
 				As -= alpha_compensate;
+			}
+			else if (PS_CLR_HW == 2)
+			{
+				// Compensate slightly for Cd*(As + 1) - Cs*As.
+				// The initial factor we chose is 1 (0.00392)
+				// as that is the minimum color Cd can be,
+				// then we multiply by alpha to get the minimum
+				// blended value it can be.
+				float color_compensate = 1.f * (C + 1.f);
+				Color.rgb -= float3(color_compensate);
 			}
 		}
 		else
@@ -978,7 +989,7 @@ struct PSMain
 		ps_fbmask(C);
 
 		if (PS_COLOR0)
-			out.c0 = C / 255.f;
+			out.c0 = PS_HDR ? float4(C.rgb / 65535.f, C.a / 255.f) : C / 255.f;
 		if (PS_COLOR0 && PS_ONLY_ALPHA)
 			out.c0.rgb = 0;
 		if (PS_COLOR1)

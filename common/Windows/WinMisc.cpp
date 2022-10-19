@@ -20,6 +20,7 @@
 #include "common/Exceptions.h"
 #include "common/StringUtil.h"
 #include "common/General.h"
+#include "common/WindowInfo.h"
 
 #include "fmt/core.h"
 
@@ -80,44 +81,13 @@ std::string GetOSVersionString()
 	return retval;
 }
 
-// --------------------------------------------------------------------------------------
-//  Exception::WinApiError   (implementations)
-// --------------------------------------------------------------------------------------
-Exception::WinApiError::WinApiError()
-{
-	ErrorId = GetLastError();
-	m_message_diag = "Unspecified Windows API error.";
-}
-
-std::string Exception::WinApiError::GetMsgFromWindows() const
-{
-	if (!ErrorId)
-		return "No valid error number was assigned to this exception!";
-
-	const DWORD BUF_LEN = 2048;
-	wchar_t t_Msg[BUF_LEN];
-	if (FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM, 0, ErrorId, 0, t_Msg, BUF_LEN, 0))
-		return fmt::format("Win32 Error #{}: {}", ErrorId, StringUtil::WideStringToUTF8String(t_Msg));
-
-	return fmt::format("Win32 Error #{} (no text msg available)", ErrorId);
-}
-
-std::string Exception::WinApiError::FormatDisplayMessage() const
-{
-	return m_message_user + "\n\n" + GetMsgFromWindows();
-}
-
-std::string Exception::WinApiError::FormatDiagnosticMessage() const
-{
-	return m_message_diag + "\n\t" + GetMsgFromWindows();
-}
-
-void ScreensaverAllow(bool allow)
+bool WindowInfo::InhibitScreensaver(const WindowInfo& wi, bool inhibit)
 {
 	EXECUTION_STATE flags = ES_CONTINUOUS;
-	if (!allow)
+	if (inhibit)
 		flags |= ES_DISPLAY_REQUIRED;
 	SetThreadExecutionState(flags);
+	return true;
 }
 
 bool Common::PlaySoundAsync(const char* path)

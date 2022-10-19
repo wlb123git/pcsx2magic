@@ -93,7 +93,7 @@ namespace VMManager
 
 	static std::string GetCurrentSaveStateFileName(s32 slot);
 	static bool DoLoadState(const char* filename);
-	static bool DoSaveState(const char* filename, s32 slot_for_message, bool zip_on_thread);
+	static bool DoSaveState(const char* filename, s32 slot_for_message, bool zip_on_thread, bool backup_old_state);
 	static void ZipSaveState(std::unique_ptr<ArchiveEntryList> elist,
 		std::unique_ptr<SaveStateScreenshotData> screenshot, std::string osd_key,
 		const char* filename, s32 slot_for_message);
@@ -119,7 +119,7 @@ static Threading::ThreadHandle s_vm_thread_handle;
 static std::deque<std::thread> s_save_state_threads;
 static std::mutex s_save_state_threads_mutex;
 
-static std::mutex s_info_mutex;
+static std::recursive_mutex s_info_mutex;
 static std::string s_disc_path;
 static u32 s_game_crc;
 static u32 s_patches_crc;
@@ -291,8 +291,7 @@ bool VMManager::Internal::InitializeMemory()
 	s_vm_memory = std::make_unique<SysMainMemory>();
 	s_cpu_provider_pack = std::make_unique<SysCpuProviderPack>();
 
-	s_vm_memory->ReserveAll();
-	return true;
+	return s_vm_memory->Allocate();
 }
 
 void VMManager::Internal::ReleaseMemory()
@@ -302,8 +301,6 @@ void VMManager::Internal::ReleaseMemory()
 	std::vector<u8>().swap(s_no_interlacing_cheats_data);
 	s_no_interlacing_cheats_loaded = false;
 
-	s_vm_memory->DecommitAll();
-	s_vm_memory->ReleaseAll();
 	s_vm_memory.reset();
 	s_cpu_provider_pack.reset();
 }
@@ -422,7 +419,7 @@ void VMManager::RequestDisplaySize(float scale /*= 0.0f*/)
 	if (scale != 0.0f)
 	{
 		// unapply the upscaling, then apply the scale
-		scale = (1.0f / static_cast<float>(GSConfig.UpscaleMultiplier)) * scale;
+		scale = (1.0f / GSConfig.UpscaleMultiplier) * scale;
 		width *= scale;
 		height *= scale;
 	}
@@ -926,9 +923,6 @@ bool VMManager::Initialize(VMBootParameters boot_params)
 	if (!GSDumpReplayer::IsReplayingDump() && !CheckBIOSAvailability())
 		return false;
 
-	Console.WriteLn("Allocating memory map...");
-	s_vm_memory->CommitAll();
-
 	Console.WriteLn("Opening CDVD...");
 	if (!DoCDVDopen())
 	{
@@ -1072,7 +1066,7 @@ void VMManager::Shutdown(bool save_resume_state)
 	if (!GSDumpReplayer::IsReplayingDump() && save_resume_state)
 	{
 		std::string resume_file_name(GetCurrentSaveStateFileName(-1));
-		if (!resume_file_name.empty() && !DoSaveState(resume_file_name.c_str(), -1, true))
+		if (!resume_file_name.empty() && !DoSaveState(resume_file_name.c_str(), -1, true, false))
 			Console.Error("Failed to save resume state");
 	}
 	else if (GSDumpReplayer::IsReplayingDump())
@@ -1111,6 +1105,7 @@ void VMManager::Shutdown(bool save_resume_state)
 
 	ForgetLoadedPatches();
 	R3000A::ioman::reset();
+	vtlb_Shutdown();
 	USBclose();
 	SPU2close();
 	PADclose();
@@ -1137,8 +1132,6 @@ void VMManager::Shutdown(bool save_resume_state)
 	DEV9shutdown();
 	GSshutdown();
 
-	s_vm_memory->DecommitAll();
-
 	s_state.store(VMState::Shutdown, std::memory_order_release);
 	Host::OnVMDestroyed();
 }
@@ -1146,8 +1139,17 @@ void VMManager::Shutdown(bool save_resume_state)
 void VMManager::Reset()
 {
 #ifdef ENABLE_ACHIEVEMENTS
+	const bool previous_challenge_mode = Achievements::ChallengeModeActive();
 	if (!Achievements::OnReset())
 		return;
+
+	if (Achievements::ChallengeModeActive() && !previous_challenge_mode)
+	{
+		// Hardcore mode enabled, so reload settings. This only covers the BIOS
+		// portion of the boot, once the game loads we'll reset anyway, but better
+		// to change things like the speed now rather than later.
+		ApplySettings();
+	}
 #endif
 
 	const bool game_was_started = g_GameStarted;
@@ -1229,7 +1231,7 @@ bool VMManager::DoLoadState(const char* filename)
 	}
 }
 
-bool VMManager::DoSaveState(const char* filename, s32 slot_for_message, bool zip_on_thread)
+bool VMManager::DoSaveState(const char* filename, s32 slot_for_message, bool zip_on_thread, bool backup_old_state)
 {
 	if (GSDumpReplayer::IsReplayingDump())
 		return false;
@@ -1240,6 +1242,17 @@ bool VMManager::DoSaveState(const char* filename, s32 slot_for_message, bool zip
 	{
 		std::unique_ptr<ArchiveEntryList> elist(SaveState_DownloadState());
 		std::unique_ptr<SaveStateScreenshotData> screenshot(SaveState_SaveScreenshot());
+
+		if (FileSystem::FileExists(filename) && backup_old_state)
+		{
+			const std::string backup_filename(fmt::format("{}.backup", filename));
+			Console.WriteLn(fmt::format("Creating save state backup {}...", backup_filename));
+			if (!FileSystem::RenamePath(filename, backup_filename.c_str()))
+			{
+				Host::AddIconOSDMessage(std::move(osd_key), ICON_FA_EXCLAMATION_TRIANGLE,
+					fmt::format("Failed to back up old save state {}.", Path::GetFileName(filename)));
+			}
+		}
 
 		if (zip_on_thread)
 		{
@@ -1319,6 +1332,28 @@ void VMManager::WaitForSaveStateFlush()
 	}
 }
 
+u32 VMManager::DeleteSaveStates(const char* game_serial, u32 game_crc, bool also_backups /* = true */)
+{
+	WaitForSaveStateFlush();
+
+	u32 deleted = 0;
+	for (s32 i = -1; i <= NUM_SAVE_STATE_SLOTS; i++)
+	{
+		std::string filename(GetSaveStateFileName(game_serial, game_crc, i));
+		if (FileSystem::FileExists(filename.c_str()) && FileSystem::DeleteFilePath(filename.c_str()))
+			deleted++;
+
+		if (also_backups)
+		{
+			filename += ".backup";
+			if (FileSystem::FileExists(filename.c_str()) && FileSystem::DeleteFilePath(filename.c_str()))
+				deleted++;
+		}
+	}
+
+	return deleted;
+}
+
 bool VMManager::LoadState(const char* filename)
 {
 #ifdef ENABLE_ACHIEVEMENTS
@@ -1358,9 +1393,9 @@ bool VMManager::LoadStateFromSlot(s32 slot)
 	return DoLoadState(filename.c_str());
 }
 
-bool VMManager::SaveState(const char* filename, bool zip_on_thread)
+bool VMManager::SaveState(const char* filename, bool zip_on_thread, bool backup_old_state)
 {
-	return DoSaveState(filename, -1, zip_on_thread);
+	return DoSaveState(filename, -1, zip_on_thread, backup_old_state);
 }
 
 bool VMManager::SaveStateToSlot(s32 slot, bool zip_on_thread)
@@ -1371,7 +1406,7 @@ bool VMManager::SaveStateToSlot(s32 slot, bool zip_on_thread)
 
 	// if it takes more than a minute.. well.. wtf.
 	Host::AddIconOSDMessage(fmt::format("SaveStateSlot{}", slot), ICON_FA_SAVE, fmt::format("Saving state to slot {}...", slot), 60.0f);
-	return DoSaveState(filename.c_str(), slot, zip_on_thread);
+	return DoSaveState(filename.c_str(), slot, zip_on_thread, EmuConfig.BackupSavestate);
 }
 
 LimiterModeType VMManager::GetLimiterMode()
@@ -1386,7 +1421,7 @@ void VMManager::SetLimiterMode(LimiterModeType type)
 
 	EmuConfig.LimiterMode = type;
 	gsUpdateFrequency(EmuConfig);
-	GetMTGS().SetVSync(EmuConfig.GetEffectiveVsyncMode());
+	GetMTGS().UpdateVSyncMode();
 }
 
 void VMManager::FrameAdvance(u32 num_frames /*= 1*/)
@@ -1595,7 +1630,6 @@ void VMManager::CheckForGSConfigChanges(const Pcsx2Config& old_config)
 	UpdateVSyncRate();
 	frameLimitReset();
 	GetMTGS().ApplySettings();
-	GetMTGS().SetVSync(EmuConfig.GetEffectiveVsyncMode());
 }
 
 void VMManager::CheckForFramerateConfigChanges(const Pcsx2Config& old_config)
@@ -1607,7 +1641,7 @@ void VMManager::CheckForFramerateConfigChanges(const Pcsx2Config& old_config)
 	gsUpdateFrequency(EmuConfig);
 	UpdateVSyncRate();
 	frameLimitReset();
-	GetMTGS().SetVSync(EmuConfig.GetEffectiveVsyncMode());
+	GetMTGS().UpdateVSyncMode();
 }
 
 void VMManager::CheckForPatchConfigChanges(const Pcsx2Config& old_config)
@@ -1839,11 +1873,13 @@ void VMManager::WarnAboutUnsafeSettings()
 		messages += ICON_FA_TACHOMETER_ALT " Cycle rate/skip is not at default, this may crash or make games run too slow.\n";
 	if (EmuConfig.SPU2.SynchMode != Pcsx2Config::SPU2Options::SynchronizationMode::TimeStretch)
 		messages += ICON_FA_VOLUME_MUTE " Audio is not using time stretch synchronization, this may break FMVs.\n";
+	if (EmuConfig.GS.UpscaleMultiplier < 1.0f)
+		messages += ICON_FA_TV " Upscale multiplier is below native, this will break rendering.\n";
 	if (EmuConfig.GS.HWMipmap != HWMipmapLevel::Automatic)
 		messages += ICON_FA_IMAGES " Mipmapping is not set to automatic. This may break rendering in some games.\n";
 	if (EmuConfig.GS.TextureFiltering != BiFiltering::PS2)
 		messages += ICON_FA_FILTER " Texture filtering is not set to Bilinear (PS2). This will break rendering in some games.\n";
-	if (EmuConfig.GS.UserHacks_TriFilter != TriFiltering::Automatic)
+	if (EmuConfig.GS.TriFilter != TriFiltering::Automatic)
 		messages += ICON_FA_PAGER " Trilinear filtering is not set to automatic. This may break rendering in some games.\n";
 	if (EmuConfig.GS.AccurateBlendingUnit <= AccBlendLevel::Minimum)
 		messages += ICON_FA_BLENDER " Blending is below basic, this may break effects in some games.\n";

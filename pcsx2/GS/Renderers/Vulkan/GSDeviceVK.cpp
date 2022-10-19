@@ -378,7 +378,7 @@ VkFormat GSDeviceVK::LookupNativeFormat(GSTexture::Format format) const
 	static constexpr std::array<VkFormat, static_cast<int>(GSTexture::Format::BC7) + 1> s_format_mapping = {{
 		VK_FORMAT_UNDEFINED, // Invalid
 		VK_FORMAT_R8G8B8A8_UNORM, // Color
-		VK_FORMAT_R32G32B32A32_SFLOAT, // FloatColor
+		VK_FORMAT_R16G16B16A16_UNORM, // HDRColor
 		VK_FORMAT_D32_SFLOAT_S8_UINT, // DepthStencil
 		VK_FORMAT_R8_UNORM, // UNorm8
 		VK_FORMAT_R16_UINT, // UInt16
@@ -552,8 +552,14 @@ void GSDeviceVK::CopyRect(GSTexture* sTex, GSTexture* dTex, const GSVector4i& r,
 	EndRenderPass();
 
 	dTexVK->TransitionToLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	dTexVK->SetUsedThisCommandBuffer();
+
 	sTexVK->TransitionToLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	sTexVK->SetUsedThisCommandBuffer();
+
+	// ensure we don't leave this bound later on
+	if (m_tfx_textures[0] == sTexVK->GetView())
+		PSSetShaderResource(0, nullptr, false);
 
 	vkCmdCopyImage(g_vulkan_context->GetCurrentCommandBuffer(), sTexVK->GetImage(),
 		VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, dTexVK->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &ic);
@@ -711,13 +717,14 @@ void GSDeviceVK::BlitRect(GSTexture* sTex, const GSVector4i& sRect, u32 sLevel, 
 	GSTextureVK* sTexVK = static_cast<GSTextureVK*>(sTex);
 	GSTextureVK* dTexVK = static_cast<GSTextureVK*>(dTex);
 
-	//const VkImageLayout old_src_layout = sTexVK->GetTexture().GetLayout();
-	//const VkImageLayout old_dst_layout = dTexVK->GetTexture().GetLayout();
-
 	EndRenderPass();
 
 	sTexVK->TransitionToLayout(VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
 	dTexVK->TransitionToLayout(VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	// ensure we don't leave this bound later on
+	if (m_tfx_textures[0] == sTexVK->GetView())
+		PSSetShaderResource(0, nullptr, false);
 
 	pxAssert(
 		(sTexVK->GetType() == GSTexture::Type::DepthStencil) == (dTexVK->GetType() == GSTexture::Type::DepthStencil));
@@ -1101,7 +1108,7 @@ VkShaderModule GSDeviceVK::GetUtilityVertexShader(const std::string& source, con
 	std::stringstream ss;
 	AddShaderHeader(ss);
 	AddShaderStageMacro(ss, true, false, false);
-	AddMacro(ss, "PS_SCALE_FACTOR", GSConfig.UpscaleMultiplier);
+	AddMacro(ss, "PS_SCALE_FACTOR", StringUtil::ToChars(GSConfig.UpscaleMultiplier).c_str());
 	if (replace_main)
 		ss << "#define " << replace_main << " main\n";
 	ss << source;
@@ -1114,7 +1121,7 @@ VkShaderModule GSDeviceVK::GetUtilityFragmentShader(const std::string& source, c
 	std::stringstream ss;
 	AddShaderHeader(ss);
 	AddShaderStageMacro(ss, false, false, true);
-	AddMacro(ss, "PS_SCALE_FACTOR", GSConfig.UpscaleMultiplier);
+	AddMacro(ss, "PS_SCALE_FACTOR", StringUtil::ToChars(GSConfig.UpscaleMultiplier).c_str());
 	if (replace_main)
 		ss << "#define " << replace_main << " main\n";
 	ss << source;
@@ -1243,7 +1250,7 @@ bool GSDeviceVK::CreateRenderPasses()
 	} while (0)
 
 	const VkFormat rt_format = LookupNativeFormat(GSTexture::Format::Color);
-	const VkFormat hdr_rt_format = LookupNativeFormat(GSTexture::Format::FloatColor);
+	const VkFormat hdr_rt_format = LookupNativeFormat(GSTexture::Format::HDRColor);
 	const VkFormat depth_format = LookupNativeFormat(GSTexture::Format::DepthStencil);
 
 	for (u32 rt = 0; rt < 2; rt++)
@@ -1307,7 +1314,7 @@ bool GSDeviceVK::CreateRenderPasses()
 bool GSDeviceVK::CompileConvertPipelines()
 {
 	// we may not have a swap chain if running in headless mode.
-	Vulkan::SwapChain* swapchain = static_cast<Vulkan::SwapChain*>(g_host_display->GetRenderSurface());
+	Vulkan::SwapChain* swapchain = static_cast<Vulkan::SwapChain*>(g_host_display->GetSurface());
 	if (swapchain)
 	{
 		m_swap_chain_render_pass =
@@ -1413,26 +1420,6 @@ bool GSDeviceVK::CompileConvertPipelines()
 
 		if (i == ShaderConvert::COPY)
 		{
-			// compile the variant for setting up hdr rendering
-			for (u32 ds = 0; ds < 2; ds++)
-			{
-				for (u32 fbl = 0; fbl < 2; fbl++)
-				{
-					pxAssert(!m_hdr_setup_pipelines[ds][fbl]);
-
-					gpb.SetRenderPass(GetTFXRenderPass(true, ds != 0, true, DATE_RENDER_PASS_NONE, fbl != 0,
-										  VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_LOAD_OP_DONT_CARE),
-						0);
-					m_hdr_setup_pipelines[ds][fbl] =
-						gpb.Create(g_vulkan_context->GetDevice(), g_vulkan_shader_cache->GetPipelineCache(true), false);
-					if (!m_hdr_setup_pipelines[ds][fbl])
-						return false;
-
-					Vulkan::Util::SetObjectName(g_vulkan_context->GetDevice(), m_hdr_setup_pipelines[ds][fbl],
-						"HDR setup/copy pipeline (ds=%u, fbl=%u)", i, ds, fbl);
-				}
-			}
-
 			// compile color copy pipelines
 			gpb.SetRenderPass(m_utility_color_render_pass_discard, 0);
 			for (u32 i = 0; i < 16; i++)
@@ -1451,24 +1438,26 @@ bool GSDeviceVK::CompileConvertPipelines()
 					(i >> 3) & 1u);
 			}
 		}
-		else if (i == ShaderConvert::MOD_256)
+		else if (i == ShaderConvert::HDR_INIT || i == ShaderConvert::HDR_RESOLVE)
 		{
+			const bool is_setup = i == ShaderConvert::HDR_INIT;
+			VkPipeline (&arr)[2][2] = *(is_setup ? &m_hdr_setup_pipelines : &m_hdr_finish_pipelines);
 			for (u32 ds = 0; ds < 2; ds++)
 			{
 				for (u32 fbl = 0; fbl < 2; fbl++)
 				{
-					pxAssert(!m_hdr_finish_pipelines[ds][fbl]);
+					pxAssert(!arr[ds][fbl]);
 
-					gpb.SetRenderPass(GetTFXRenderPass(true, ds != 0, false, DATE_RENDER_PASS_NONE, fbl != 0,
-										  VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_LOAD_OP_DONT_CARE),
+					gpb.SetRenderPass(
+						GetTFXRenderPass(true, ds != 0, is_setup, DATE_RENDER_PASS_NONE, fbl != 0,
+							VK_ATTACHMENT_LOAD_OP_DONT_CARE, VK_ATTACHMENT_LOAD_OP_DONT_CARE),
 						0);
-					m_hdr_finish_pipelines[ds][fbl] =
-						gpb.Create(g_vulkan_context->GetDevice(), g_vulkan_shader_cache->GetPipelineCache(true), false);
-					if (!m_hdr_finish_pipelines[ds][fbl])
+					arr[ds][fbl] = gpb.Create(g_vulkan_context->GetDevice(), g_vulkan_shader_cache->GetPipelineCache(true), false);
+					if (!arr[ds][fbl])
 						return false;
 
-					Vulkan::Util::SetObjectName(g_vulkan_context->GetDevice(), m_hdr_setup_pipelines[ds][fbl],
-						"HDR finish/copy pipeline (ds=%u, fbl=%u)", i, ds, fbl);
+					Vulkan::Util::SetObjectName(g_vulkan_context->GetDevice(), arr[ds][fbl],
+						"HDR %s/copy pipeline (ds=%u, fbl=%u)", is_setup ? "setup" : "finish", i, ds, fbl);
 				}
 			}
 		}
@@ -1523,7 +1512,7 @@ bool GSDeviceVK::CompileConvertPipelines()
 bool GSDeviceVK::CompilePresentPipelines()
 {
 	// we may not have a swap chain if running in headless mode.
-	Vulkan::SwapChain* swapchain = static_cast<Vulkan::SwapChain*>(g_host_display->GetRenderSurface());
+	Vulkan::SwapChain* swapchain = static_cast<Vulkan::SwapChain*>(g_host_display->GetSurface());
 	if (swapchain)
 	{
 		m_swap_chain_render_pass =
@@ -1911,7 +1900,7 @@ VkShaderModule GSDeviceVK::GetTFXVertexShader(GSHWDrawConfig::VSSelector sel)
 	AddMacro(ss, "VS_IIP", sel.iip);
 	AddMacro(ss, "VS_POINT_SIZE", sel.point_size);
 	if (sel.point_size)
-		AddMacro(ss, "VS_POINT_SIZE_VALUE", GSConfig.UpscaleMultiplier);
+		AddMacro(ss, "VS_POINT_SIZE_VALUE", StringUtil::ToChars(GSConfig.UpscaleMultiplier).c_str());
 	ss << m_tfx_source;
 
 	VkShaderModule mod = g_vulkan_shader_cache->GetVertexShader(ss.str());
@@ -1995,7 +1984,7 @@ VkShaderModule GSDeviceVK::GetTFXFragmentShader(const GSHWDrawConfig::PSSelector
 	AddMacro(ss, "PS_ZCLAMP", sel.zclamp);
 	AddMacro(ss, "PS_PABE", sel.pabe);
 	AddMacro(ss, "PS_SCANMSK", sel.scanmsk);
-	AddMacro(ss, "PS_SCALE_FACTOR", GSConfig.UpscaleMultiplier);
+	AddMacro(ss, "PS_SCALE_FACTOR", StringUtil::ToChars(GSConfig.UpscaleMultiplier).c_str());
 	AddMacro(ss, "PS_TEX_IS_FB", sel.tex_is_fb);
 	AddMacro(ss, "PS_NO_COLOR", sel.no_color);
 	AddMacro(ss, "PS_NO_COLOR1", sel.no_color1);
@@ -2902,6 +2891,7 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 	}
 	if (config.pal)
 		PSSetShaderResource(1, config.pal, true);
+
 	if (config.blend.constant_enable)
 		SetBlendConstants(config.blend.constant);
 
@@ -2943,7 +2933,7 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 		EndRenderPass();
 
 		GL_PUSH_("HDR Render Target Setup");
-		hdr_rt = static_cast<GSTextureVK*>(CreateRenderTarget(rtsize.x, rtsize.y, GSTexture::Format::FloatColor, false));
+		hdr_rt = static_cast<GSTextureVK*>(CreateRenderTarget(rtsize.x, rtsize.y, GSTexture::Format::HDRColor, false));
 		if (!hdr_rt)
 		{
 			Console.WriteLn("Failed to allocate HDR render target, aborting draw.");
@@ -2972,7 +2962,7 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 	else if (config.require_one_barrier && !m_features.texture_barrier)
 	{
 		// requires a copy of the RT
-		draw_rt_clone = static_cast<GSTextureVK*>(CreateTexture(rtsize.x, rtsize.y, false, GSTexture::Format::Color, false));
+		draw_rt_clone = static_cast<GSTextureVK*>(CreateTexture(rtsize.x, rtsize.y, 1, GSTexture::Format::Color, false));
 		if (draw_rt_clone)
 		{
 			EndRenderPass();
@@ -3042,6 +3032,7 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 	}
 
 	// Begin render pass if new target or out of the area.
+	bool skip_first_barrier = false;
 	if (!render_area_okay || !InRenderPass())
 	{
 		const VkAttachmentLoadOp rt_op = GetLoadOpForTexture(draw_rt);
@@ -3069,6 +3060,10 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 		{
 			BeginRenderPass(rp, render_area);
 		}
+
+		// We don't need the very first barrier if this is the first draw in the render pass, because we have
+		// pipeline barriers inbetween them anyway.
+		skip_first_barrier = true;
 	}
 
 	// rt -> hdr blit if enabled
@@ -3094,12 +3089,12 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 	// now we can do the actual draw
 	if (BindDrawPipeline(pipe))
 	{
-		SendHWDraw(config, draw_rt);
+		SendHWDraw(config, draw_rt, skip_first_barrier);
 		if (config.separate_alpha_pass)
 		{
 			SetHWDrawConfigForAlphaPass(&pipe.ps, &pipe.cms, &pipe.bs, &pipe.dss);
 			if (BindDrawPipeline(pipe))
-				SendHWDraw(config, draw_rt);
+				SendHWDraw(config, draw_rt, false);
 		}
 	}
 
@@ -3119,12 +3114,12 @@ void GSDeviceVK::RenderHW(GSHWDrawConfig& config)
 		pipe.bs = config.blend;
 		if (BindDrawPipeline(pipe))
 		{
-			SendHWDraw(config, draw_rt);
+			SendHWDraw(config, draw_rt, false);
 			if (config.second_separate_alpha_pass)
 			{
 				SetHWDrawConfigForAlphaPass(&pipe.ps, &pipe.cms, &pipe.bs, &pipe.dss);
 				if (BindDrawPipeline(pipe))
-					SendHWDraw(config, draw_rt);
+					SendHWDraw(config, draw_rt, false);
 			}
 		}
 	}
@@ -3206,14 +3201,26 @@ void GSDeviceVK::UpdateHWPipelineSelector(GSHWDrawConfig& config, PipelineSelect
 	pipe.vs.point_size |= (config.topology == GSHWDrawConfig::Topology::Point);
 }
 
-void GSDeviceVK::SendHWDraw(const GSHWDrawConfig& config, GSTextureVK* draw_rt)
+void GSDeviceVK::SendHWDraw(const GSHWDrawConfig& config, GSTextureVK* draw_rt, bool skip_first_barrier)
 {
 	if (config.drawlist)
 	{
 		GL_PUSH("Split the draw (SPRITE)");
-		g_perfmon.Put(GSPerfMon::Barriers, static_cast<u32>(config.drawlist->size()));
+		g_perfmon.Put(GSPerfMon::Barriers, static_cast<u32>(config.drawlist->size()) - static_cast<u32>(skip_first_barrier));
 
-		for (u32 count = 0, p = 0, n = 0; n < static_cast<u32>(config.drawlist->size()); p += count, ++n)
+		u32 count = 0;
+		u32 p = 0;
+		u32 n = 0;
+
+		if (skip_first_barrier)
+		{
+			count = (*config.drawlist)[n] * config.indices_per_prim;
+			DrawIndexedPrimitive(p, count);
+			p += count;
+			++n;
+		}
+
+		for (; n < static_cast<u32>(config.drawlist->size()); p += count, ++n)
 		{
 			count = (*config.drawlist)[n] * config.indices_per_prim;
 			ColorBufferBarrier(draw_rt);
@@ -3228,18 +3235,26 @@ void GSDeviceVK::SendHWDraw(const GSHWDrawConfig& config, GSTextureVK* draw_rt)
 		if (config.require_full_barrier)
 		{
 			GL_PUSH("Split single draw in %d draw", config.nindices / config.indices_per_prim);
-			g_perfmon.Put(GSPerfMon::Barriers, config.nindices / config.indices_per_prim);
+			g_perfmon.Put(GSPerfMon::Barriers, (config.nindices / config.indices_per_prim) - static_cast<u32>(skip_first_barrier));
 
-			for (u32 p = 0; p < config.nindices; p += config.indices_per_prim)
+			const u32 ipp = config.indices_per_prim;
+			u32 p = 0;
+			if (skip_first_barrier)
+			{
+				DrawIndexedPrimitive(p, ipp);
+				p += ipp;
+			}
+
+			for (; p < config.nindices; p += ipp)
 			{
 				ColorBufferBarrier(draw_rt);
-				DrawIndexedPrimitive(p, config.indices_per_prim);
+				DrawIndexedPrimitive(p, ipp);
 			}
 
 			return;
 		}
 
-		if (config.require_one_barrier)
+		if (config.require_one_barrier && !skip_first_barrier)
 		{
 			g_perfmon.Put(GSPerfMon::Barriers, 1);
 			ColorBufferBarrier(draw_rt);

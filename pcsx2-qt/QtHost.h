@@ -67,9 +67,10 @@ public:
 	__fi bool isRunningFullscreenUI() const { return m_run_fullscreen_ui; }
 
 	bool isOnEmuThread() const;
+	bool shouldRenderToMain() const;
 
 	/// Called back from the GS thread when the display state changes (e.g. fullscreen, render to main).
-	bool acquireHostDisplay(HostDisplay::RenderAPI api);
+	bool acquireHostDisplay(RenderAPI api);
 	void connectDisplaySignals(DisplayWidget* widget);
 	void releaseHostDisplay();
 	void updateDisplay();
@@ -104,6 +105,8 @@ public Q_SLOTS:
 	void reloadPatches();
 	void reloadInputSources();
 	void reloadInputBindings();
+	void reloadInputDevices();
+	void closeInputSources();
 	void requestDisplaySize(float scale);
 	void enumerateInputDevices();
 	void enumerateVibrationMotors();
@@ -166,7 +169,6 @@ private:
 
 	void destroyVM();
 	void executeVM();
-	bool shouldRenderToMain() const;
 
 	void createBackgroundControllerPollTimer();
 	void destroyBackgroundControllerPollTimer();

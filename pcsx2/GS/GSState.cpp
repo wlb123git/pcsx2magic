@@ -51,7 +51,7 @@ GSState::GSState()
 {
 	// m_nativeres seems to be a hack. Unfortunately it impacts draw call number which make debug painful in the replayer.
 	// Let's keep it disabled to ease debug.
-	m_nativeres = GSConfig.UpscaleMultiplier == 1;
+	m_nativeres = GSConfig.UpscaleMultiplier == 1.0f;
 	m_mipmap = GSConfig.Mipmap;
 
 	s_n = 0;
@@ -149,7 +149,7 @@ GSState::~GSState()
 
 void GSState::Reset(bool hardware_reset)
 {
-	Flush();
+	Flush(GSFlushReason::RESET);
 
 	// FIXME: bios logo not shown cut in half after reset, missing graphics in GoW after first FMV
 	if (hardware_reset)
@@ -631,6 +631,57 @@ void GSState::DumpVertices(const std::string& filename)
 	if (!file.is_open())
 		return;
 
+	file << "FLUSH REASON: ";
+
+	switch (m_state_flush_reason)
+	{
+		case GSFlushReason::RESET:
+			file << "RESET";
+			break;
+		case GSFlushReason::CONTEXTCHANGE:
+			file << "CONTEXT CHANGE";
+			break;
+		case GSFlushReason::CLUTCHANGE:
+			file << "CLUT CHANGE (RELOAD REQ)";
+			break;
+		case GSFlushReason::TEXFLUSH:
+			file << "TEXFLUSH CALL";
+			break;
+		case GSFlushReason::GSTRANSFER:
+			file << "GS TRANSFER";
+			break;
+		case GSFlushReason::UPLOADDIRTYTEX:
+			file << "GS UPLOAD OVERWRITES CURRENT TEXTURE OR CLUT";
+			break;
+		case GSFlushReason::DOWNLOADFIFO:
+			file << "DOWNLOAD FIFO";
+			break;
+		case GSFlushReason::SAVESTATE:
+			file << "SAVESTATE";
+			break;
+		case GSFlushReason::LOADSTATE:
+			file << "LOAD SAVESTATE";
+			break;
+		case GSFlushReason::AUTOFLUSH:
+			file << "AUTOFLUSH OVERLAP DETECTED";
+			break;
+		case GSFlushReason::VSYNC:
+			file << "VSYNC";
+			break;
+		case GSFlushReason::GSREOPEN:
+			file << "GS REOPEN";
+			break;
+		case GSFlushReason::UNKNOWN:
+		default:
+			file << "UNKNOWN";
+			break;
+	}
+
+	if (m_state_flush_reason != GSFlushReason::CONTEXTCHANGE && m_dirty_gs_regs)
+		file << " AND POSSIBLE CONTEXT CHANGE";
+
+	file << std::endl << std::endl;
+
 	const size_t count = m_index.tail;
 	GSVertex* buffer = &m_vertex.buff[0];
 
@@ -724,7 +775,7 @@ __inline void GSState::CheckFlushes()
 	{
 		if (TestDrawChanged())
 		{
-			Flush();
+			Flush(GSFlushReason::CONTEXTCHANGE);
 		}
 	}
 	if ((m_context->FRAME.FBMSK & GSLocalMemory::m_psm[m_context->FRAME.PSM].fmsk) != GSLocalMemory::m_psm[m_context->FRAME.PSM].fmsk)
@@ -802,7 +853,7 @@ void GSState::GIFPackedRegHandlerXYZF2(const GIFPackedReg* RESTRICT r)
 
 	m_v.m[1] = xy.upl32(zf);
 
-	VertexKick<prim, auto_flush, index_swap>(adc ? 1 : r->XYZ2.Skip());
+	VertexKick<prim, auto_flush, index_swap>(adc ? 1 : r->XYZF2.Skip());
 }
 
 template <u32 prim, u32 adc, bool auto_flush, bool index_swap>
@@ -1025,7 +1076,7 @@ void GSState::ApplyTEX0(GIFRegTEX0& TEX0)
 	// clut loading already covered with WriteTest, for drawing only have to check CPSM and CSA (MGS3 intro skybox would be drawn piece by piece without this)
 
 	if (wt)
-		Flush();
+		Flush(GSFlushReason::CLUTCHANGE);
 
 	TEX0.CPSM &= 0xa; // 1010b
 
@@ -1099,7 +1150,9 @@ void GSState::GIFRegHandlerTEX0(const GIFReg* RESTRICT r)
 	// Max allowed MTBA size for 32bit swizzled textures (including 8H 4HL etc) is 512, 16bit and normal 8/4bit formats can be 1024
 	const u32 maxTex = (GSLocalMemory::m_psm[TEX0.PSM].bpp < 32) ? 10 : 9;
 
-	// Spec max is 10
+	// Spec max is 10, but bitfield allows for up to 15
+	// However STQ calculations expect the written size to be used for denormalization (Simple 2000 Series Vol 105 The Maid)
+	// This is clamped to 10 in the FixedTEX0 functions so texture sizes don't exceed 1024x1024, but STQ can calculate properly (with invalid_tex0)
 	//
 	// Yakuza (minimap)
 	// Sets TW/TH to 0
@@ -1110,8 +1163,8 @@ void GSState::GIFRegHandlerTEX0(const GIFReg* RESTRICT r)
 	// Sets TW/TH to 0
 	// there used to be a case to force this to 10
 	// but GetSizeFixedTEX0 sorts this now
-	TEX0.TW = std::clamp<u32>(TEX0.TW, 0, 10);
-	TEX0.TH = std::clamp<u32>(TEX0.TH, 0, 10);
+	TEX0.TW = std::clamp<u32>(TEX0.TW, 0, 15);
+	TEX0.TH = std::clamp<u32>(TEX0.TH, 0, 15);
 
 	// MTBA loads are triggered by writes to TEX0 (but not TEX2!)
 	// Textures MUST be a minimum width of 32 pixels
@@ -1362,8 +1415,8 @@ void GSState::GIFRegHandlerTEXFLUSH(const GIFReg* RESTRICT r)
 	// Some games do a single sprite draw to itself, then flush the texture cache, then use that texture again.
 	// This won't get picked up by the new autoflush logic (which checks for page crossings for the PS2 Texture Cache flush)
 	// so we need to do it here.
-	if (IsAutoFlushEnabled())
-		Flush();
+	if (IsAutoFlushEnabled() && IsAutoFlushDraw())
+		Flush(GSFlushReason::TEXFLUSH);
 }
 
 template <int i>
@@ -1618,7 +1671,7 @@ void GSState::GIFRegHandlerTRXDIR(const GIFReg* RESTRICT r)
 {
 	GL_REG("TRXDIR = 0x%x_%x", r->U32[1], r->U32[0]);
 
-	Flush();
+	Flush(GSFlushReason::GSTRANSFER);
 
 	m_env.TRXDIR = (GSVector4i)r->TRXDIR;
 
@@ -1657,12 +1710,14 @@ inline void GSState::CopyEnv(GSDrawingEnvironment* dest, GSDrawingEnvironment* s
 	dest->CTXT[ctx].m_fixed_tex0 = src->CTXT[ctx].m_fixed_tex0;
 }
 
-void GSState::Flush()
+void GSState::Flush(GSFlushReason reason)
 {
 	FlushWrite();
 
 	if (m_index.tail > 0)
 	{
+		m_state_flush_reason = reason;
+
 		if (m_dirty_gs_regs)
 		{
 			const int ctx = m_prev_env.PRIM.CTXT;
@@ -1698,6 +1753,8 @@ void GSState::Flush()
 
 		m_dirty_gs_regs = 0;
 	}
+
+	m_state_flush_reason = GSFlushReason::UNKNOWN;
 }
 
 void GSState::FlushWrite()
@@ -1945,16 +2002,18 @@ void GSState::Write(const u8* mem, int len)
 	if (!m_tr.Update(w, h, psm.trbpp, len))
 		return;
 
+	// TODO: Not really sufficient if a partial texture update is done outside the block.
+	// No need to check CLUT here, we can invalidate it below, no need to flush it since TEX0 needs to update, then we can flush.
+	// Only flush on a NEW transfer if a pending one is using the same address.
+	// Check Fast & Furious (Hardare mode) and Assault Suits Valken (either renderer).
+	if (m_tr.end == 0 && m_index.tail > 0 && m_prev_env.PRIM.TME &&
+		(blit.DBP == m_prev_env.CTXT[m_prev_env.PRIM.CTXT].TEX0.TBP0 || blit.DBP == m_prev_env.CTXT[m_prev_env.PRIM.CTXT].TEX0.CBP))
+		Flush(GSFlushReason::UPLOADDIRTYTEX);
+
 	GL_CACHE("Write! ...  => 0x%x W:%d F:%s (DIR %d%d), dPos(%d %d) size(%d %d)",
 			 blit.DBP, blit.DBW, psm_str(blit.DPSM),
 			 m_env.TRXPOS.DIRX, m_env.TRXPOS.DIRY,
 			 m_env.TRXPOS.DSAX, m_env.TRXPOS.DSAY, w, h);
-
-	// TODO: Not really sufficient if a partial texture update is done outside the block.
-	// No need to check CLUT here, we can invalidate it below, no need to flush it since TEX0 needs to update, then we can flush.
-	if ((PRIM->TME && (blit.DBP == m_context->TEX0.TBP0)) ||
-		(m_prev_env.PRIM.TME && (blit.DBP == m_prev_env.CTXT[m_prev_env.PRIM.CTXT].TEX0.TBP0)))
-		Flush();
 
 	if (m_tr.end == 0 && len >= m_tr.total)
 	{
@@ -2262,7 +2321,7 @@ void GSState::SoftReset(u32 mask)
 
 void GSState::ReadFIFO(u8* mem, int size)
 {
-	Flush();
+	Flush(GSFlushReason::DOWNLOADFIFO);
 
 	size *= 16;
 
@@ -2506,7 +2565,7 @@ int GSState::Freeze(freezeData* fd, bool sizeonly)
 	if (!fd->data || fd->size < m_sssize)
 		return -1;
 
-	Flush();
+	Flush(GSFlushReason::SAVESTATE);
 
 	u8* data = fd->data;
 
@@ -2593,7 +2652,7 @@ int GSState::Defrost(const freezeData* fd)
 		return -1;
 	}
 
-	Flush();
+	Flush(GSFlushReason::LOADSTATE);
 
 	Reset(false);
 
@@ -2885,12 +2944,8 @@ GSState::PRIM_OVERLAP GSState::PrimitiveOverlap()
 	return overlap;
 }
 
-__forceinline void GSState::HandleAutoFlush()
+__forceinline bool GSState::IsAutoFlushDraw()
 {
-	// Kind of a cheat, making the assumption that 2 consecutive fan/strip triangles won't overlap each other (*should* be safe)
-	if ((m_index.tail & 1) && (PRIM->PRIM == GS_TRIANGLESTRIP || PRIM->PRIM == GS_TRIANGLEFAN))
-		return;
-
 	const u32 frame_mask = GSLocalMemory::m_psm[m_context->TEX0.PSM].fmsk;
 	const bool frame_hit = (m_context->FRAME.Block() == m_context->TEX0.TBP0) && !(m_context->TEST.ATE && m_context->TEST.ATST == 0 && m_context->TEST.AFAIL == 2) && ((m_context->FRAME.FBMSK & frame_mask) != frame_mask);
 	// There's a strange behaviour we need to test on a PS2 here, if the FRAME is a Z format, like Powerdrome something swaps over, and it seems Alpha Fail of "FB Only" writes to the Z.. it's odd.
@@ -2898,10 +2953,22 @@ __forceinline void GSState::HandleAutoFlush()
 	const u32 frame_z_psm = frame_hit ? m_context->FRAME.PSM : m_context->ZBUF.PSM;
 	const u32 frame_z_bp = frame_hit ? m_context->FRAME.Block() : m_context->ZBUF.Block();
 
+	if (PRIM->TME && (frame_hit || zbuf_hit) && GSUtil::HasSharedBits(frame_z_bp, frame_z_psm, m_context->TEX0.TBP0, m_context->TEX0.PSM))
+		return true;
+	
+	return false;
+}
+
+__forceinline void GSState::HandleAutoFlush()
+{
+	// Kind of a cheat, making the assumption that 2 consecutive fan/strip triangles won't overlap each other (*should* be safe)
+	if ((m_index.tail & 1) && (PRIM->PRIM == GS_TRIANGLESTRIP || PRIM->PRIM == GS_TRIANGLEFAN))
+		return;
+
 	// To briefly explain what's going on here, what we are checking for is draws over a texture when the source and destination are themselves.
 	// Because one page of the texture gets buffered in the Texture Cache (the PS2's one) if any of those pixels are overwritten, you still read the old data.
 	// So we need to calculate if a page boundary is being crossed for the format it is in and if the same part of the texture being written and read inside the draw.
-	if (PRIM->TME && (frame_hit || zbuf_hit) && GSUtil::HasSharedBits(frame_z_bp, frame_z_psm, m_context->TEX0.TBP0, m_context->TEX0.PSM))
+	if (IsAutoFlushDraw())
 	{
 		int  n = 1;
 		size_t buff[3];
@@ -3005,6 +3072,9 @@ __forceinline void GSState::HandleAutoFlush()
 		// Crossed page since last draw end
 		if(!tex_page.eq(last_tex_page))
 		{
+			const u32 frame_mask = GSLocalMemory::m_psm[m_context->TEX0.PSM].fmsk;
+			const bool frame_hit = (m_context->FRAME.Block() == m_context->TEX0.TBP0) && !(m_context->TEST.ATE && m_context->TEST.ATST == 0 && m_context->TEST.AFAIL == 2) && ((m_context->FRAME.FBMSK & frame_mask) != frame_mask);
+			const u32 frame_z_psm = frame_hit ? m_context->FRAME.PSM : m_context->ZBUF.PSM;
 			// Make sure the format matches, otherwise the coordinates aren't gonna match, so the draws won't intersect.
 			if (GSUtil::HasCompatibleBits(m_context->TEX0.PSM, frame_z_psm) && (m_context->FRAME.FBW == m_context->TEX0.TBW))
 			{
@@ -3049,7 +3119,7 @@ __forceinline void GSState::HandleAutoFlush()
 					old_tex_rect = tex_rect.rintersect(old_tex_rect);
 					if (!old_tex_rect.rintersect(scissor).rempty())
 					{
-						Flush();
+						Flush(GSFlushReason::AUTOFLUSH);
 						return;
 					}
 
@@ -3075,10 +3145,10 @@ __forceinline void GSState::HandleAutoFlush()
 					area_out.w += GSLocalMemory::m_psm[m_context->TEX0.PSM].pgs.y;
 
 					if (!area_out.rintersect(tex_rect).rempty())
-						Flush();
+						Flush(GSFlushReason::AUTOFLUSH);
 				}
 				else // Page width is different, so it's much more difficult to calculate where it's modifying.
-					Flush();
+					Flush(GSFlushReason::AUTOFLUSH);
 			}
 		}
 	}
@@ -3590,68 +3660,78 @@ void GSState::CalcAlphaMinMax()
 	if (m_vt.m_alpha.valid)
 		return;
 
-	const GSDrawingContext* context = m_context;
+	int min = 0, max = 0;
 
-	GSVector4i a = m_vt.m_min.c.uph32(m_vt.m_max.c).zzww();
-
-	if (PRIM->TME && context->TEX0.TCC)
+	if (IsCoverageAlpha())
 	{
-		const GSDrawingEnvironment& env = m_env;
-
-		switch (GSLocalMemory::m_psm[context->TEX0.PSM].fmt)
+		min = 128;
+		max = 128;
+	}
+	else
+	{
+		const GSDrawingContext* context = m_context;
+		GSVector4i a = m_vt.m_min.c.uph32(m_vt.m_max.c).zzww();
+		if (PRIM->TME && context->TEX0.TCC)
 		{
-			case 0:
-				a.y = 0;
-				a.w = 0xff;
-				break;
-			case 1:
-				a.y = env.TEXA.AEM ? 0 : env.TEXA.TA0;
-				a.w = env.TEXA.TA0;
-				break;
-			case 2:
-				a.y = env.TEXA.AEM ? 0 : std::min(env.TEXA.TA0, env.TEXA.TA1);
-				a.w = std::max(env.TEXA.TA0, env.TEXA.TA1);
-				break;
-			case 3:
-				m_mem.m_clut.GetAlphaMinMax32(a.y, a.w);
-				break;
-			default:
-				__assume(0);
-		}
+			const GSDrawingEnvironment& env = m_env;
 
-		switch (context->TEX0.TFX)
-		{
-			case TFX_MODULATE:
-				a.x = (a.x * a.y) >> 7;
-				a.z = (a.z * a.w) >> 7;
-				if (a.x > 0xff)
-					a.x = 0xff;
-				if (a.z > 0xff)
-					a.z = 0xff;
-				break;
-			case TFX_DECAL:
-				a.x = a.y;
-				a.z = a.w;
-				break;
-			case TFX_HIGHLIGHT:
-				a.x = a.x + a.y;
-				a.z = a.z + a.w;
-				if (a.x > 0xff)
-					a.x = 0xff;
-				if (a.z > 0xff)
-					a.z = 0xff;
-				break;
-			case TFX_HIGHLIGHT2:
-				a.x = a.y;
-				a.z = a.w;
-				break;
-			default:
-				__assume(0);
+			switch (GSLocalMemory::m_psm[context->TEX0.PSM].fmt)
+			{
+				case 0:
+					a.y = 0;
+					a.w = 0xff;
+					break;
+				case 1:
+					a.y = env.TEXA.AEM ? 0 : env.TEXA.TA0;
+					a.w = env.TEXA.TA0;
+					break;
+				case 2:
+					a.y = env.TEXA.AEM ? 0 : std::min(env.TEXA.TA0, env.TEXA.TA1);
+					a.w = std::max(env.TEXA.TA0, env.TEXA.TA1);
+					break;
+				case 3:
+					m_mem.m_clut.GetAlphaMinMax32(a.y, a.w);
+					break;
+				default:
+					__assume(0);
+			}
+
+			switch (context->TEX0.TFX)
+			{
+				case TFX_MODULATE:
+					a.x = (a.x * a.y) >> 7;
+					a.z = (a.z * a.w) >> 7;
+					if (a.x > 0xff)
+						a.x = 0xff;
+					if (a.z > 0xff)
+						a.z = 0xff;
+					break;
+				case TFX_DECAL:
+					a.x = a.y;
+					a.z = a.w;
+					break;
+				case TFX_HIGHLIGHT:
+					a.x = a.x + a.y;
+					a.z = a.z + a.w;
+					if (a.x > 0xff)
+						a.x = 0xff;
+					if (a.z > 0xff)
+						a.z = 0xff;
+					break;
+				case TFX_HIGHLIGHT2:
+					a.x = a.y;
+					a.z = a.w;
+					break;
+				default:
+					__assume(0);
+			}
 		}
+		min = a.x;
+		max = a.z;
 	}
 
-	m_vt.m_alpha.min = a.x;
-	m_vt.m_alpha.max = a.z;
+	m_vt.m_alpha.min = min;
+	m_vt.m_alpha.max = max;
 	m_vt.m_alpha.valid = true;
 }
 

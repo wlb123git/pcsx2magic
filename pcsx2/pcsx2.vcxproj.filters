@@ -1844,6 +1844,9 @@
     <ClCompile Include="USB\usb-python2\inputs\passthrough\usb-python2-passthrough.cpp" />
     <ClCompile Include="USB\usb-python2\inputs\raw\python2-config-raw.cpp" />
     <ClCompile Include="USB\usb-python2\inputs\raw\usb-python2-raw.cpp" />
+    <ClCompile Include="Frontend\ImGuiOverlays.cpp">
+      <Filter>Host</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Patch.h">
@@ -3073,6 +3076,12 @@
     <ClInclude Include="USB\usb-python2\inputs\passthrough\usb-python2-passthrough.h" />
     <ClInclude Include="USB\usb-python2\inputs\raw\python2-config-raw-res.h" />
     <ClInclude Include="USB\usb-python2\inputs\raw\usb-python2-raw.h" />
+    <ClInclude Include="Frontend\ImGuiOverlays.h">
+      <Filter>Host</Filter>
+    </ClInclude>
+    <ClInclude Include="ShaderCacheVersion.h">
+      <Filter>System\Include</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="windows\wxResources.rc">

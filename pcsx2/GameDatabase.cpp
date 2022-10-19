@@ -324,14 +324,8 @@ bool GameDatabaseSchema::isUserHackHWFix(GSHWFixId id)
 		case GSHWFixId::Mipmap:
 		case GSHWFixId::TexturePreloading:
 		case GSHWFixId::PointListPalette:
-			return false;
-
-#ifdef PCSX2_CORE
-			// Trifiltering isn't a hack in Qt.
 		case GSHWFixId::TrilinearFiltering:
 			return false;
-#endif
-
 		default:
 			return true;
 	}
@@ -470,13 +464,13 @@ bool GameDatabaseSchema::GameEntry::configMatchesHWFix(const Pcsx2Config::GSOpti
 			return (static_cast<int>(config.UserHacks_TextureInsideRt) == value);
 
 		case GSHWFixId::AlignSprite:
-			return (config.UpscaleMultiplier == 1 || static_cast<int>(config.UserHacks_AlignSpriteX) == value);
+			return (config.UpscaleMultiplier <= 1.0f || static_cast<int>(config.UserHacks_AlignSpriteX) == value);
 
 		case GSHWFixId::MergeSprite:
-			return (config.UpscaleMultiplier == 1 || static_cast<int>(config.UserHacks_MergePPSprite) == value);
+			return (config.UpscaleMultiplier <= 1.0f || static_cast<int>(config.UserHacks_MergePPSprite) == value);
 
 		case GSHWFixId::WildArmsHack:
-			return (config.UpscaleMultiplier == 1 || static_cast<int>(config.UserHacks_WildHack) == value);
+			return (config.UpscaleMultiplier <= 1.0f || static_cast<int>(config.UserHacks_WildHack) == value);
 
 		case GSHWFixId::PointListPalette:
 			return (static_cast<int>(config.PointListPalette) == value);
@@ -485,7 +479,7 @@ bool GameDatabaseSchema::GameEntry::configMatchesHWFix(const Pcsx2Config::GSOpti
 			return (config.HWMipmap == HWMipmapLevel::Automatic || static_cast<int>(config.HWMipmap) == value);
 
 		case GSHWFixId::TrilinearFiltering:
-			return (config.UserHacks_TriFilter == TriFiltering::Automatic || static_cast<int>(config.UserHacks_TriFilter) == value);
+			return (config.TriFilter == TriFiltering::Automatic || static_cast<int>(config.TriFilter) == value);
 
 		case GSHWFixId::SkipDrawStart:
 			return (config.SkipDrawStart == value);
@@ -497,10 +491,10 @@ bool GameDatabaseSchema::GameEntry::configMatchesHWFix(const Pcsx2Config::GSOpti
 			return (config.UserHacks_HalfBottomOverride == value);
 
 		case GSHWFixId::HalfPixelOffset:
-			return (config.UpscaleMultiplier == 1 || config.UserHacks_HalfPixelOffset == value);
+			return (config.UpscaleMultiplier <= 1.0f || config.UserHacks_HalfPixelOffset == value);
 
 		case GSHWFixId::RoundSprite:
-			return (config.UpscaleMultiplier == 1 || config.UserHacks_RoundSprite == value);
+			return (config.UpscaleMultiplier <= 1.0f || config.UserHacks_RoundSprite == value);
 
 		case GSHWFixId::TexturePreloading:
 			return (static_cast<int>(config.TexturePreloading) <= value);
@@ -603,9 +597,9 @@ u32 GameDatabaseSchema::GameEntry::applyGSHardwareFixes(Pcsx2Config::GSOptions& 
 			{
 				if (value >= 0 && value <= static_cast<int>(TriFiltering::Forced))
 				{
-					if (config.UserHacks_TriFilter == TriFiltering::Automatic)
-						config.UserHacks_TriFilter = static_cast<TriFiltering>(value);
-					else if (config.UserHacks_TriFilter == TriFiltering::Off)
+					if (config.TriFilter == TriFiltering::Automatic)
+						config.TriFilter = static_cast<TriFiltering>(value);
+					else if (config.TriFilter == TriFiltering::Off)
 						Console.Warning("[GameDB] Game requires trilinear filtering but it has been force disabled.");
 				}
 			}

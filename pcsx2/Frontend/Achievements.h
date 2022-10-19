@@ -65,6 +65,7 @@ namespace Achievements
 	{
 		std::string user;
 		std::string formatted_score;
+		time_t submitted;
 		u32 rank;
 		bool is_self;
 	};
@@ -146,7 +147,8 @@ namespace Achievements
 	const Achievement* GetAchievementByID(u32 id);
 	std::pair<u32, u32> GetAchievementProgress(const Achievement& achievement);
 	std::string GetAchievementProgressText(const Achievement& achievement);
-	const std::string& GetAchievementBadgePath(const Achievement& achievement, bool download_if_missing = true);
+	const std::string& GetAchievementBadgePath(
+		const Achievement& achievement, bool download_if_missing = true, bool force_unlocked_icon = false);
 	std::string GetAchievementBadgeURL(const Achievement& achievement);
 	u32 GetPrimedAchievementCount();
 

@@ -53,13 +53,14 @@
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\cpuinfo\include</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\rapidyaml\rapidyaml\ext\c4core\src\c4\ext\fast_float\include</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\rcheevos\rcheevos\include;$(SolutionDir)3rdparty\rainterface</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(SolutionDir)3rdparty\discord-rpc\include</AdditionalIncludeDirectories>
       <ExceptionHandling>Async</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>PrecompiledHeader.h</PrecompiledHeaderFile>
       <ForcedIncludeFiles>PrecompiledHeader.h;%(ForcedIncludeFiles)</ForcedIncludeFiles>
       <EnableEnhancedInstructionSet>NoExtensions</EnableEnhancedInstructionSet>
       <AdditionalOptions>/Zc:externConstexpr %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>INCLUDE_MINIMAID;INCLUDE_BTOOLS;WIN32_LEAN_AND_MEAN;ZIP_STATIC;LZMA_API_STATIC;BUILD_DX=1;ENABLE_RAINTEGRATION;ENABLE_ACHIEVEMENTS;ENABLE_OPENGL;ENABLE_VULKAN;SPU2X_CUBEB;SDL_BUILD;PCSX2_CORE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>INCLUDE_MINIMAID;INCLUDE_BTOOLS;WIN32_LEAN_AND_MEAN;ZIP_STATIC;LZMA_API_STATIC;BUILD_DX=1;ENABLE_DISCORD_PRESENCE;ENABLE_RAINTEGRATION;ENABLE_ACHIEVEMENTS;ENABLE_OPENGL;ENABLE_VULKAN;SPU2X_CUBEB;SDL_BUILD;PCSX2_CORE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="$(Configuration.Contains(Debug))">PCSX2_DEBUG;PCSX2_DEVBUILD;_SECURE_SCL_=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="$(Configuration.Contains(Devel))">PCSX2_DEVEL;PCSX2_DEVBUILD;NDEBUG;_SECURE_SCL_=1;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <PreprocessorDefinitions Condition="$(Configuration.Contains(Release))">NDEBUG;_SECURE_SCL_=0;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -194,10 +195,12 @@
     <ClCompile Include="Frontend\CommonHotkeys.cpp" />
     <ClCompile Include="Frontend\D3D11HostDisplay.cpp" />
     <ClCompile Include="Frontend\D3D12HostDisplay.cpp" />
+    <ClCompile Include="Frontend\DInputSource.cpp" />
     <ClCompile Include="Frontend\FullscreenUI.cpp" />
     <ClCompile Include="Frontend\GameList.cpp" />
     <ClCompile Include="Frontend\ImGuiFullscreen.cpp" />
     <ClCompile Include="Frontend\ImGuiManager.cpp" />
+    <ClCompile Include="Frontend\ImGuiOverlays.cpp" />
     <ClCompile Include="Frontend\imgui_impl_dx11.cpp" />
     <ClCompile Include="Frontend\imgui_impl_dx12.cpp" />
     <ClCompile Include="Frontend\imgui_impl_opengl3.cpp" />
@@ -547,10 +550,12 @@
     <ClInclude Include="Frontend\CommonHost.h" />
     <ClInclude Include="Frontend\D3D11HostDisplay.h" />
     <ClInclude Include="Frontend\D3D12HostDisplay.h" />
+    <ClInclude Include="Frontend\DInputSource.h" />
     <ClInclude Include="Frontend\FullscreenUI.h" />
     <ClInclude Include="Frontend\GameList.h" />
     <ClInclude Include="Frontend\ImGuiFullscreen.h" />
     <ClInclude Include="Frontend\ImGuiManager.h" />
+    <ClInclude Include="Frontend\ImGuiOverlays.h" />
     <ClInclude Include="Frontend\imgui_impl_dx11.h" />
     <ClInclude Include="Frontend\imgui_impl_dx12.h" />
     <ClInclude Include="Frontend\imgui_impl_opengl3.h" />
@@ -593,6 +598,7 @@
     <ClInclude Include="Recording\InputRecordingFile.h" />
     <ClInclude Include="Recording\PadData.h" />
     <ClInclude Include="Recording\Utilities\InputRecordingLogger.h" />
+    <ClInclude Include="ShaderCacheVersion.h" />
     <ClInclude Include="SPU2\Config.h" />
     <ClInclude Include="SPU2\Global.h" />
     <ClInclude Include="SPU2\Host\Config.h" />
@@ -843,9 +849,6 @@
     <ProjectReference Include="$(SolutionDir)3rdparty\libpng\projects\vstudio\libpng\libpng.vcxproj">
       <Project>{d6973076-9317-4ef2-a0b8-b7a18ac0713e}</Project>
     </ProjectReference>
-    <ProjectReference Include="$(SolutionDir)3rdparty\libsamplerate\libsamplerate.vcxproj">
-      <Project>{47afdbef-f15f-4bc0-b436-5be443c3f80f}</Project>
-    </ProjectReference>
     <ProjectReference Include="$(SolutionDir)3rdparty\soundtouch\SoundTouch.vcxproj">
       <Project>{e9b51944-7e6d-4bcd-83f2-7bbd5a46182d}</Project>
     </ProjectReference>
@@ -873,6 +876,9 @@
     </ProjectReference>
     <ProjectReference Include="..\3rdparty\libusb\libusb.vcxproj">
       <Project>{349ee8f9-7d25-4909-aaf5-ff3fade72187}</Project>
+    </ProjectReference>
+    <ProjectReference Include="..\3rdparty\discord-rpc\discord-rpc.vcxproj">
+      <Project>{e960dfdf-1bd3-4c29-b251-d1a0919c9b09}</Project>
     </ProjectReference>
     <ProjectReference Include="..\3rdparty\libzip\libzip.vcxproj">
       <Project>{20b2e9fe-f020-42a0-b324-956f5b06ea68}</Project>
