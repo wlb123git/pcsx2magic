@@ -1211,9 +1211,6 @@
     <ClCompile Include="SPU2\Host\Config.cpp">
       <Filter>System\Ps2\SPU2</Filter>
     </ClCompile>
-    <ClCompile Include="USB\USBNull.cpp">
-      <Filter>System\Ps2\USB</Filter>
-    </ClCompile>
     <ClCompile Include="Frontend\HostSettings.cpp">
       <Filter>Host</Filter>
     </ClCompile>
@@ -1350,6 +1347,9 @@
     </ClCompile>
     <ClCompile Include="Frontend\Achievements.cpp">
       <Filter>Host</Filter>
+    </ClCompile>
+    <ClCompile Include="USB\usb-python2\inputs\btools\usb-python2-btools.cpp">
+      <Filter>System\Ps2\USB\usb-python2\inputs</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -2268,6 +2268,9 @@
       <Filter>Host</Filter>
     </ClInclude>
     <ClInclude Include="Achievements.h" />
+    <ClInclude Include="USB\usb-python2\inputs\btools\usb-python2-btools.h">
+      <Filter>System\Ps2\USB\usb-python2\inputs</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CustomBuildStep Include="rdebug\deci2.h">

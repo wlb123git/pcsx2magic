@@ -5,9 +5,9 @@
 #include "inputs/native/usb-python2-native.h"
 #else
 #include "inputs/raw/usb-python2-raw.h"
-#include "inputs/btools/usb-python2-btools.h"
 #endif
 
+#include "inputs/btools/usb-python2-btools.h"
 #include "inputs/passthrough/usb-python2-passthrough.h"
 
 void usb_python2::RegisterUsbPython2::Register()
@@ -22,7 +22,7 @@ void usb_python2::RegisterUsbPython2::Register()
 
 	inst.Add(usb_python2::passthrough::APINAME, new UsbPython2Proxy<usb_python2::passthrough::PassthroughInput>());
 
-#if defined(INCLUDE_BTOOLS) && !defined(PCSX2_CORE)
+#if defined(INCLUDE_BTOOLS)
 	inst.Add(usb_python2::btools::APINAME, new UsbPython2Proxy<usb_python2::btools::BToolsInput>());
 #endif
 }
