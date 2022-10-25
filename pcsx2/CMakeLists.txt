@@ -96,22 +96,16 @@ include_directories(PCSX2_FLAGS INTERFACE ${LibUSB_INCLUDE_DIRS})
 target_link_libraries(PCSX2_FLAGS INTERFACE ${LibUSB_LIBRARIES})
 
 if(WIN32)
-	# Resources
-	target_sources(PCSX2 PRIVATE
-		PCSX2.rc
-		GS/GS.rc
-		PAD/Windows/PAD.rc
-		SPU2/Windows/SPU2.rc
-		USB/usb-pad/dx/versionproxy.rc
-		USB/usb-pad/raw/raw-config.rc
-		windows/wxResources.rc
-		windows/PCSX2.manifest
-	)
+	if(PCSX2_CORE)
+		set(MIN_WIN32 0x0A00)
+	else()
+		set(MIN_WIN32 0x0603)
+	endif()
 	target_compile_definitions(PCSX2_FLAGS INTERFACE
 		_M_SSE=0x401 # TODO: Multiple ISA
 		DIRECTINPUT_VERSION=0x0800
-		WINVER=0x0603
-		_WIN32_WINNT=0x0603
+		WINVER=${MIN_WIN32}
+		_WIN32_WINNT=${MIN_WIN32}
 		WIN32_LEAN_AND_MEAN
 		LZMA_API_STATIC
 		WIL_SUPPRESS_EXCEPTIONS
@@ -119,7 +113,6 @@ if(WIN32)
 	target_include_directories(PCSX2_FLAGS INTERFACE
 		../3rdparty # GL headers
 	)
-	set_target_properties(PCSX2 PROPERTIES WIN32_EXECUTABLE TRUE)
 endif(WIN32)
 
 # Main pcsx2 source
@@ -896,19 +889,11 @@ set(pcsx2GSMetalShaders
 	GS/Renderers/Metal/convert.metal
 	GS/Renderers/Metal/present.metal
 	GS/Renderers/Metal/merge.metal
+	GS/Renderers/Metal/misc.metal
 	GS/Renderers/Metal/interlace.metal
 	GS/Renderers/Metal/tfx.metal
 	GS/Renderers/Metal/fxaa.metal
 )
-
-if(NOT PCSX2_CORE)
-	list(APPEND pcsx2GSSources
-		GS/Window/GSwxDialog.cpp
-	)
-	list(APPEND pcsx2GSHeaders
-		GS/Window/GSwxDialog.h
-	)
-endif()
 
 if(PCSX2_CORE)
 	list(APPEND pcsx2SPU2Headers
@@ -926,22 +911,50 @@ if(PCSX2_CORE)
 			SPU2/WavFile.cpp
 		)
 	endif()
-elseif(WIN32)
-	list(APPEND pcsx2SPU2Sources
-		SPU2/Windows/CfgHelpers.cpp
-		SPU2/Windows/Config.cpp
-		SPU2/Windows/ConfigDebug.cpp
-		SPU2/Windows/ConfigSoundTouch.cpp
-		SPU2/Windows/dsp.cpp
-		SPU2/Windows/RealtimeDebugger.cpp
-		SPU2/Windows/SndOut_XAudio2.cpp
-		SPU2/Windows/UIHelpers.cpp
+else()
+	list(APPEND pcsx2GSSources
+		GS/Window/GSwxDialog.cpp
 	)
-	list(APPEND pcsx2SPU2Headers
-		SPU2/Windows/Dialogs.h
-		SPU2/Windows/dsp.h
-		SPU2/Windows/resource.h
-		SPU2/Windows/WinConfig.h
+	list(APPEND pcsx2GSHeaders
+		GS/Window/GSwxDialog.h
+	)
+	if(WIN32)
+		list(APPEND pcsx2SPU2Sources
+			SPU2/Windows/CfgHelpers.cpp
+			SPU2/Windows/Config.cpp
+			SPU2/Windows/ConfigDebug.cpp
+			SPU2/Windows/ConfigSoundTouch.cpp
+			SPU2/Windows/dsp.cpp
+			SPU2/Windows/RealtimeDebugger.cpp
+			SPU2/Windows/UIHelpers.cpp
+		)
+		list(APPEND pcsx2SPU2Headers
+			SPU2/Windows/Dialogs.h
+			SPU2/Windows/dsp.h
+			SPU2/Windows/resource.h
+			SPU2/Windows/WinConfig.h
+		)
+	else()
+		list(APPEND pcsx2SPU2Sources
+			SPU2/Linux/CfgHelpers.cpp
+			SPU2/Linux/Config.cpp
+			SPU2/Linux/ConfigDebug.cpp
+			SPU2/Linux/ConfigSoundTouch.cpp
+			SPU2/Linux/Dialogs.cpp
+			SPU2/WavFile.cpp
+			SPU2/wx/wxConfig.cpp
+		)
+		list(APPEND pcsx2SPU2Headers
+			SPU2/Linux/Config.h
+			SPU2/Linux/Dialogs.h
+			SPU2/wx/wxConfig.h
+		)
+	endif()
+endif()
+
+if(WIN32)
+	list(APPEND pcsx2SPU2Sources
+		SPU2/Windows/SndOut_XAudio2.cpp
 	)
 
 	list(APPEND pcsx2DEV9Sources
@@ -1004,21 +1017,6 @@ elseif(WIN32)
 		GS/Renderers/DX12/GSTexture12.h
 	)
 else()
-	list(APPEND pcsx2SPU2Sources
-		SPU2/Linux/CfgHelpers.cpp
-		SPU2/Linux/Config.cpp
-		SPU2/Linux/ConfigDebug.cpp
-		SPU2/Linux/ConfigSoundTouch.cpp
-		SPU2/Linux/Dialogs.cpp
-		SPU2/WavFile.cpp
-		SPU2/wx/wxConfig.cpp
-	)
-	list(APPEND pcsx2SPU2Headers
-		SPU2/Linux/Config.h
-		SPU2/Linux/Dialogs.h
-		SPU2/wx/wxConfig.h
-	)
-
 	list(APPEND pcsx2USBSources
 		USB/icon_buzz_24.cpp
 		USB/linux/config-gtk.cpp
@@ -1208,6 +1206,16 @@ if(PCSX2_CORE)
 		)
 		target_link_libraries(PCSX2_FLAGS INTERFACE
 			discord-rpc
+		)
+	endif()
+	if(WIN32)
+		list(APPEND pcsx2FrontendSources
+			Frontend/DInputSource.cpp
+			Frontend/XInputSource.cpp
+		)
+		list(APPEND pcsx2FrontendHeaders
+			Frontend/DInputSource.h
+			Frontend/XInputSource.h
 		)
 	endif()
 endif()
@@ -1530,10 +1538,15 @@ set(pcsx2WindowsSources
 	CDVD/Windows/IOCtlSrc.cpp
 	windows/FlatFileReaderWindows.cpp
 	windows/Optimus.cpp
-	windows/WinConsolePipe.cpp
-	windows/WinKeyCodes.cpp
-	windows/WinPowerProfile.cpp
+)
+
+if(NOT PCSX2_CORE)
+	list(APPEND pcsx2WindowsSources
+		windows/WinConsolePipe.cpp
+		windows/WinKeyCodes.cpp
+		windows/WinPowerProfile.cpp
 	)
+endif()
 
 # Windows headers
 set(pcsx2WindowsHeaders
@@ -1925,6 +1938,37 @@ function(setup_main_executable target)
 	get_property(PCSX2_SOURCE_DIR GLOBAL PROPERTY PCSX2_SOURCE_DIR)
 	get_property(PCSX2_METAL_SHADERS GLOBAL PROPERTY PCSX2_METAL_SHADERS)
 
+	if(QT_BUILD)
+		get_target_property(MOC_EXECUTABLE_LOCATION Qt6::moc IMPORTED_LOCATION)
+		get_filename_component(QT_BINARY_DIRECTORY "${MOC_EXECUTABLE_LOCATION}" DIRECTORY)
+	endif()
+
+	if(WIN32)
+		if(NOT PCSX2_CORE)
+			target_sources(${target} PRIVATE
+				${PCSX2_SOURCE_DIR}/GS/GS.rc
+				${PCSX2_SOURCE_DIR}/PAD/Windows/PAD.rc
+				${PCSX2_SOURCE_DIR}/SPU2/Windows/SPU2.rc
+				${PCSX2_SOURCE_DIR}/USB/usb-pad/dx/versionproxy.rc
+				${PCSX2_SOURCE_DIR}/USB/usb-pad/raw/raw-config.rc
+			)
+		endif()
+		target_sources(${target} PRIVATE
+			${PCSX2_SOURCE_DIR}/PCSX2.rc
+			${PCSX2_SOURCE_DIR}/windows/wxResources.rc
+			${PCSX2_SOURCE_DIR}/windows/PCSX2.manifest
+		)
+		set_target_properties(${target} PROPERTIES WIN32_EXECUTABLE TRUE)
+		if(MSVC)
+			install(FILES $<TARGET_PDB_FILE:${target}> DESTINATION ${CMAKE_SOURCE_DIR}/bin)
+		endif()
+		if(QT_BUILD)
+			find_program(WINDEPLOYQT_EXE windeployqt HINTS "${QT_BINARY_DIRECTORY}")
+			install(CODE "execute_process(COMMAND \"${WINDEPLOYQT_EXE}\" \"${CMAKE_SOURCE_DIR}/bin/pcsx2-qt.exe\" --plugindir ${CMAKE_SOURCE_DIR}/bin/QtPlugins --no-compiler-runtime --no-system-d3d-compiler)")
+			install(CODE "file(WRITE \"${CMAKE_SOURCE_DIR}/bin/qt.conf\" \"[Paths]\\nPlugins = ./QtPlugins\")")
+		endif()
+	endif()
+
 	if(APPLE)
 		if(CMAKE_GENERATOR MATCHES "Xcode")
 			# If we're generating an xcode project, you can just add the shaders to the main pcsx2 target and xcode will deal with them properly
@@ -1983,8 +2027,6 @@ function(setup_main_executable target)
 		endif()
 
 		if(QT_BUILD)
-			get_target_property(MOC_EXECUTABLE_LOCATION Qt6::moc IMPORTED_LOCATION)
-			get_filename_component(QT_BINARY_DIRECTORY "${MOC_EXECUTABLE_LOCATION}" DIRECTORY)
 			find_program(MACDEPLOYQT_EXE macdeployqt HINTS "${QT_BINARY_DIRECTORY}")
 			add_custom_target(pcsx2-postprocess-bundle ${postprocessBundleType}
 				COMMAND "${MACDEPLOYQT_EXE}" "$<TARGET_FILE_DIR:${target}>/../.." -no-strip
@@ -2003,7 +2045,7 @@ if (NOT QT_BUILD)
 	setup_main_executable(PCSX2)
 endif()
 
-if(NOT DISABLE_SETCAP AND NOT PCSX2_CORE)
+if(NOT DISABLE_SETCAP AND NOT PCSX2_CORE AND NOT WIN32)
 	if(PACKAGE_MODE)
 		install(CODE "execute_process(COMMAND /bin/bash -c \"echo 'Enabling networking capability on Linux...';set -x; [ -f '${CMAKE_INSTALL_FULL_BINDIR}/pcsx2' ] && sudo setcap 'CAP_NET_RAW+eip CAP_NET_ADMIN+eip' '${CMAKE_INSTALL_FULL_BINDIR}/pcsx2'; set +x\")")
 	else()

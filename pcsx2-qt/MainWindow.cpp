@@ -817,6 +817,8 @@ void MainWindow::onBlockDumpActionToggled(bool checked)
 
 	Host::SetBaseStringSettingValue("EmuCore", "BlockDumpSaveDirectory", new_dir.toUtf8().constData());
 	Host::CommitBaseSettingChanges();
+
+	g_emu_thread->applySettings();
 }
 
 void MainWindow::saveStateToConfig()
@@ -969,7 +971,7 @@ void MainWindow::updateWindowState(bool force_visible)
 		return;
 
 	const bool hide_window = !isRenderingToMain() && shouldHideMainWindow();
-	const bool disable_resize = Host::GetBaseBoolSettingValue("UI", "DisableWindowResize", false);
+	const bool disable_resize = Host::GetBoolSettingValue("UI", "DisableWindowResize", false);
 	const bool has_window = s_vm_valid || m_display_widget;
 
 	// Need to test both valid and display widget because of startup (vm invalid while window is created).
@@ -1041,7 +1043,7 @@ bool MainWindow::shouldHideMouseCursor() const
 bool MainWindow::shouldHideMainWindow() const
 {
 	// NOTE: We can't use isRenderingToMain() here, because this happens post-fullscreen-switch.
-	return Host::GetBaseBoolSettingValue("UI", "HideMainWindowWhenRunning", false) ||
+	return Host::GetBoolSettingValue("UI", "HideMainWindowWhenRunning", false) ||
 		   (g_emu_thread->shouldRenderToMain() && isRenderingFullscreen()) ||
 		   QtHost::InNoGUIMode();
 }
@@ -1128,7 +1130,7 @@ bool MainWindow::requestShutdown(bool allow_confirm /* = true */, bool allow_sav
 	bool save_state = allow_save_to_state && default_save_to_state;
 
 	// Only confirm on UI thread because we need to display a msgbox.
-	if (!m_is_closing && allow_confirm && !GSDumpReplayer::IsReplayingDump() && Host::GetBaseBoolSettingValue("UI", "ConfirmShutdown", true))
+	if (!m_is_closing && allow_confirm && !GSDumpReplayer::IsReplayingDump() && Host::GetBoolSettingValue("UI", "ConfirmShutdown", true))
 	{
 		VMLock lock(pauseAndLockVM());
 
@@ -1158,7 +1160,7 @@ bool MainWindow::requestShutdown(bool allow_confirm /* = true */, bool allow_sav
 	// reshow the main window during display updates, because otherwise fullscreen transitions and renderer switches
 	// would briefly show and then hide the main window. So instead, we do it on shutdown, here. Except if we're in
 	// batch mode, when we're going to exit anyway.
-	if (!isRenderingToMain() && isHidden() && !QtHost::InBatchMode())
+	if (!isRenderingToMain() && isHidden() && !QtHost::InBatchMode() && !g_emu_thread->isRunningFullscreenUI())
 		updateWindowState(true);
 
 	// Now we can actually shut down the VM.
@@ -1733,6 +1735,10 @@ void MainWindow::onVMStopped()
 	{
 		switchToGameListView();
 	}
+
+	// reload played time
+	if (m_game_list_widget->isShowingGameList())
+		m_game_list_widget->refresh(false);
 }
 
 void MainWindow::onGameChanged(const QString& path, const QString& serial, const QString& name, quint32 crc)

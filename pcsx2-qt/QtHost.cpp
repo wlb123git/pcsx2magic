@@ -606,7 +606,7 @@ void Host::CheckForSettingsChanges(const Pcsx2Config& old_config)
 
 bool EmuThread::shouldRenderToMain() const
 {
-	return !Host::GetBaseBoolSettingValue("UI", "RenderToSeparateWindow", false) && !QtHost::InNoGUIMode();
+	return !Host::GetBoolSettingValue("UI", "RenderToSeparateWindow", false) && !QtHost::InNoGUIMode();
 }
 
 void EmuThread::toggleSoftwareRendering()
@@ -1595,6 +1595,7 @@ void QtHost::PrintCommandLineHelp(const std::string_view& progname)
 	std::fprintf(stderr, "  -nogui: Hides main window while running (implies batch mode).\n");
 	std::fprintf(stderr, "  -elf <file>: Overrides the boot ELF with the specified filename.\n");
 	std::fprintf(stderr, "  -disc <path>: Uses the specified host DVD drive as a source.\n");
+	std::fprintf(stderr, "  -logfile <path>: Writes the application log to path instead of emulog.txt.\n");
 	std::fprintf(stderr, "  -bios: Starts the BIOS (System Menu/OSDSYS).\n");
 	std::fprintf(stderr, "  -fastboot: Force fast boot for provided filename.\n");
 	std::fprintf(stderr, "  -slowboot: Force slow boot for provided filename.\n");
@@ -1687,6 +1688,11 @@ bool QtHost::ParseCommandLineOptions(const QStringList& args, std::shared_ptr<VM
 			{
 				AutoBoot(autoboot)->source_type = CDVD_SourceType::Disc;
 				AutoBoot(autoboot)->filename = (++it)->toStdString();
+				continue;
+			}
+			else if (CHECK_ARG_PARAM(QStringLiteral("-logfile")))
+			{
+				CommonHost::SetFileLogPath((++it)->toStdString());
 				continue;
 			}
 			else if (CHECK_ARG(QStringLiteral("-bios")))
@@ -1786,6 +1792,13 @@ static void RegisterTypes()
 {
 	qRegisterMetaType<std::optional<bool>>();
 	qRegisterMetaType<std::optional<WindowInfo>>("std::optional<WindowInfo>()");
+	// Bit of fun with metatype names
+	// On Windows, the real type name here is "std::function<void __cdecl(void)>"
+	// Normally, the fact that we `Q_DECLARE_METATYPE(std::function<void()>);` in QtHost.h would make it also register under "std::function<void()>"
+	// The metatype is a pointer to `QMetaTypeInterfaceWrapper<std::function<void()>>::metaType`, which contains a pointer to the function that would register the alternate name
+	// But to anyone who can't see QtHost.h, that pointer should be null, opening us up to ODR violations
+	// Turns out some of our automoc files also instantiate that metaType (with the null pointer), so if we try to rely on it, everything will break if we get unlucky with link order
+	// Instead, manually register under the desired name:
 	qRegisterMetaType<std::function<void()>>("std::function<void()>");
 	qRegisterMetaType<std::shared_ptr<VMBootParameters>>();
 	qRegisterMetaType<GSRendererType>();

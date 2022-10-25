@@ -17,6 +17,7 @@
 
 #define IMGUI_DEFINE_MATH_OPERATORS
 
+#include "Frontend/CommonHost.h"
 #include "Frontend/FullscreenUI.h"
 #include "Frontend/ImGuiManager.h"
 #include "Frontend/ImGuiFullscreen.h"
@@ -425,10 +426,12 @@ namespace FullscreenUI
 	//////////////////////////////////////////////////////////////////////////
 	// Achievements
 	//////////////////////////////////////////////////////////////////////////
+	static void SwitchToAchievementsWindow();
 	static void DrawAchievementsWindow();
 	static void DrawAchievement(const Achievements::Achievement& cheevo);
 	static void DrawPrimedAchievementsIcons();
 	static void DrawPrimedAchievementsList();
+	static void SwitchToLeaderboardsWindow();
 	static void DrawLeaderboardsWindow();
 	static void DrawLeaderboardListEntry(const Achievements::Leaderboard& lboard);
 	static void DrawLeaderboardEntry(
@@ -2223,8 +2226,8 @@ void FullscreenUI::DrawInterfaceSettingsPage()
 		false);
 	DrawToggleSetting(bsi, ICON_FA_PLAY " Show Status Indicators",
 		"Shows indicators when fast forwarding, pausing, and other abnormal states are active.", "EmuCore/GS", "OsdShowIndicators", true);
-	DrawToggleSetting(bsi, ICON_FA_SLIDERS_H " Show Settings",
-		"Shows the current configuration in the bottom-right corner of the display.", "EmuCore/GS", "OsdShowSettings", false);
+	DrawToggleSetting(bsi, ICON_FA_SLIDERS_H " Show Settings", "Shows the current configuration in the bottom-right corner of the display.",
+		"EmuCore/GS", "OsdShowSettings", false);
 	DrawToggleSetting(bsi, ICON_FA_GAMEPAD " Show Inputs",
 		"Shows the current controller state of the system in the bottom-left corner of the display.", "EmuCore/GS", "OsdShowInputs", false);
 
@@ -2658,8 +2661,8 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 			"Uploads full textures to the GPU on use, rather than only the utilized regions. Can improve performance in some games.",
 			"EmuCore/GS", "texture_preloading", static_cast<int>(TexturePreloadingLevel::Off), s_preloading_options,
 			std::size(s_preloading_options));
-		DrawIntListSetting(bsi, "Hardware Download Mode", "Changes synchronization behavior for GS downloads.", "EmuCore/GS", "HWDownloadMode",
-			static_cast<int>(GSHardwareDownloadMode::Enabled), s_hw_download, std::size(s_hw_download));
+		DrawIntListSetting(bsi, "Hardware Download Mode", "Changes synchronization behavior for GS downloads.", "EmuCore/GS",
+			"HWDownloadMode", static_cast<int>(GSHardwareDownloadMode::Enabled), s_hw_download, std::size(s_hw_download));
 		DrawToggleSetting(bsi, "GPU Palette Conversion",
 			"Applies palettes to textures on the GPU instead of the CPU. Can result in speed improvements in some games.", "EmuCore/GS",
 			"paltex", false);
@@ -3598,6 +3601,12 @@ void FullscreenUI::DrawGameFixesSettingsPage()
 	EndMenuButtons();
 }
 
+static void DrawShadowedText(ImDrawList* dl, ImFont* font, const ImVec2& pos, u32 col, const char* text, const char* text_end = nullptr)
+{
+	dl->AddText(font, font->FontSize, pos + LayoutScale(1.0f, 1.0f), IM_COL32(0, 0, 0, 100), text, text_end);
+	dl->AddText(font, font->FontSize, pos, col, text, text_end);
+}
+
 void FullscreenUI::DrawPauseMenu(MainWindowType type)
 {
 	ImDrawList* dl = ImGui::GetBackgroundDrawList();
@@ -3627,13 +3636,13 @@ void FullscreenUI::DrawPauseMenu(MainWindowType type)
 
 		float rp_height = 0.0f;
 
-		dl->AddText(g_large_font, g_large_font->FontSize, title_pos, IM_COL32(255, 255, 255, 255), s_current_game_title.c_str());
+		DrawShadowedText(dl, g_large_font, title_pos, IM_COL32(255, 255, 255, 255), s_current_game_title.c_str());
 		if (!path_string.empty())
 		{
-			dl->AddText(g_medium_font, g_medium_font->FontSize, path_pos, IM_COL32(255, 255, 255, 255), path_string.data(),
+			DrawShadowedText(dl, g_medium_font, path_pos, IM_COL32(255, 255, 255, 255), path_string.data(),
 				path_string.data() + path_string.length());
 		}
-		dl->AddText(g_medium_font, g_medium_font->FontSize, subtitle_pos, IM_COL32(255, 255, 255, 255), s_current_game_subtitle.c_str());
+		DrawShadowedText(dl, g_medium_font, subtitle_pos, IM_COL32(255, 255, 255, 255), s_current_game_subtitle.c_str());
 
 
 		HostDisplayTexture* const cover = GetCoverForCurrentGame();
@@ -3643,6 +3652,41 @@ void FullscreenUI::DrawPauseMenu(MainWindowType type)
 		const ImRect image_rect(CenterImage(
 			ImRect(image_min, image_max), ImVec2(static_cast<float>(cover->GetWidth()), static_cast<float>(cover->GetHeight()))));
 		dl->AddImage(cover->GetHandle(), image_rect.Min, image_rect.Max);
+	}
+
+	// current time / play time
+	{
+		char buf[256];
+		struct tm ltime;
+		const std::time_t ctime(std::time(nullptr));
+#ifdef _MSC_VER
+		localtime_s(&ltime, &ctime);
+#else
+		localtime_r(&ctime, &ltime);
+#endif
+		std::strftime(buf, sizeof(buf), "%X", &ltime);
+
+		const ImVec2 time_size(g_large_font->CalcTextSizeA(g_large_font->FontSize, std::numeric_limits<float>::max(), -1.0f, buf));
+		const ImVec2 time_pos(display_size.x - LayoutScale(10.0f) - time_size.x, LayoutScale(10.0f));
+		DrawShadowedText(dl, g_large_font, time_pos, IM_COL32(255, 255, 255, 255), buf);
+
+		if (!s_current_game_serial.empty())
+		{
+			const std::time_t cached_played_time = GameList::GetCachedPlayedTimeForSerial(s_current_game_serial);
+			const std::time_t session_time = static_cast<std::time_t>(CommonHost::GetSessionPlayedTime());
+			const std::string played_time_str(GameList::FormatTimespan(cached_played_time + session_time, true));
+			const std::string session_time_str(GameList::FormatTimespan(session_time, true));
+
+			std::snprintf(buf, std::size(buf), "This Session: %s", session_time_str.c_str());
+			const ImVec2 session_size(g_medium_font->CalcTextSizeA(g_medium_font->FontSize, std::numeric_limits<float>::max(), -1.0f, buf));
+			const ImVec2 session_pos(display_size.x - LayoutScale(10.0f) - session_size.x, time_pos.y + g_large_font->FontSize + LayoutScale(4.0f));
+			DrawShadowedText(dl, g_medium_font, session_pos, IM_COL32(255, 255, 255, 255), buf);
+
+			std::snprintf(buf, std::size(buf), "All Time: %s", played_time_str.c_str());
+			const ImVec2 total_size(g_medium_font->CalcTextSizeA(g_medium_font->FontSize, std::numeric_limits<float>::max(), -1.0f, buf));
+			const ImVec2 total_pos(display_size.x - LayoutScale(10.0f) - total_size.x, session_pos.y + g_medium_font->FontSize + LayoutScale(4.0f));
+			DrawShadowedText(dl, g_medium_font, total_pos, IM_COL32(255, 255, 255, 255), buf);
+		}
 	}
 
 	const ImVec2 window_size(LayoutScale(500.0f, LAYOUT_SCREEN_HEIGHT));
@@ -3704,7 +3748,7 @@ void FullscreenUI::DrawPauseMenu(MainWindowType type)
 
 					// skip second menu and go straight to cheevos if there's no lbs
 					if (Achievements::GetLeaderboardCount() == 0)
-						OpenAchievementsWindow();
+						SwitchToAchievementsWindow();
 					else
 						OpenPauseSubMenu(PauseSubMenu::Achievements);
 				}
@@ -3777,10 +3821,10 @@ void FullscreenUI::DrawPauseMenu(MainWindowType type)
 					OpenPauseSubMenu(PauseSubMenu::None);
 
 				if (ActiveButton(ICON_FA_TROPHY "  Achievements", false))
-					OpenAchievementsWindow();
+					SwitchToAchievementsWindow();
 
 				if (ActiveButton(ICON_FA_STOPWATCH "  Leaderboards", false))
-					OpenLeaderboardsWindow();
+					SwitchToLeaderboardsWindow();
 			}
 			break;
 #endif
@@ -4392,6 +4436,10 @@ void FullscreenUI::DrawGameList(const ImVec2& heading_size)
 				ImGui::SameLine();
 			}
 			ImGui::Text(" (%s)", GameList::EntryCompatibilityRatingToString(selected_entry->compatibility_rating));
+
+			// play time
+			ImGui::Text("Time Played: %s", GameList::FormatTimespan(selected_entry->total_played_time).c_str());
+			ImGui::Text("Last Played: %s", GameList::FormatTimestamp(selected_entry->last_played_time).c_str());
 
 			// size
 			ImGui::Text("Size: %.2f MB", static_cast<float>(selected_entry->total_size) / 1048576.0f);
@@ -5047,15 +5095,28 @@ void FullscreenUI::ProgressCallback::SetCancelled()
 
 #ifdef ENABLE_ACHIEVEMENTS
 
-bool FullscreenUI::OpenAchievementsWindow()
+void FullscreenUI::OpenAchievementsWindow()
 {
-	if (!VMManager::HasValidVM() || !Initialize())
-		return false;
+	if (!VMManager::HasValidVM() || !Achievements::IsActive())
+		return;
+
+	GetMTGS().RunOnGSThread([]() {
+		if (!Initialize())
+			return;
+
+		SwitchToAchievementsWindow();
+	});
+}
+
+void FullscreenUI::SwitchToAchievementsWindow()
+{
+	if (!VMManager::HasValidVM())
+		return;
 
 	if (!Achievements::HasActiveGame() || Achievements::GetAchievementCount() == 0)
 	{
 		ShowToast(std::string(), "This game has no achievements.");
-		return false;
+		return;
 	}
 
 	if (s_current_main_window != MainWindowType::PauseMenu)
@@ -5063,7 +5124,6 @@ bool FullscreenUI::OpenAchievementsWindow()
 
 	s_current_main_window = MainWindowType::Achievements;
 	QueueResetFocus();
-	return true;
 }
 
 void FullscreenUI::DrawAchievement(const Achievements::Achievement& cheevo)
@@ -5425,15 +5485,28 @@ void FullscreenUI::DrawPrimedAchievementsList()
 	});
 }
 
-bool FullscreenUI::OpenLeaderboardsWindow()
+void FullscreenUI::OpenLeaderboardsWindow()
 {
-	if (!VMManager::HasValidVM() || !Initialize())
-		return false;
+	if (!VMManager::HasValidVM() || !Achievements::IsActive())
+		return;
+
+	GetMTGS().RunOnGSThread([]() {
+		if (!Initialize())
+			return;
+
+		SwitchToLeaderboardsWindow();
+	});
+}
+
+void FullscreenUI::SwitchToLeaderboardsWindow()
+{
+	if (!VMManager::HasValidVM())
+		return;
 
 	if (!Achievements::HasActiveGame() || Achievements::GetLeaderboardCount() == 0)
 	{
 		ShowToast(std::string(), "This game has no leaderboards.");
-		return false;
+		return;
 	}
 
 	if (s_current_main_window != MainWindowType::PauseMenu)
@@ -5442,9 +5515,7 @@ bool FullscreenUI::OpenLeaderboardsWindow()
 	s_current_main_window = MainWindowType::Leaderboards;
 	s_open_leaderboard_id.reset();
 	QueueResetFocus();
-	return true;
 }
-
 
 void FullscreenUI::DrawLeaderboardListEntry(const Achievements::Leaderboard& lboard)
 {

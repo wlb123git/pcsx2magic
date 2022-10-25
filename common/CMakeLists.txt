@@ -21,11 +21,13 @@ target_sources(common PRIVATE
 	FileSystem.cpp
 	Image.cpp
 	HTTPDownloader.cpp
+	MemorySettingsInterface.cpp
 	Misc.cpp
 	MD5Digest.cpp
 	PrecompiledHeader.cpp
 	Perf.cpp
 	ProgressCallback.cpp
+	ReadbackSpinManager.cpp
 	Semaphore.cpp
 	SettingsWrapper.cpp
 	StringUtil.cpp
@@ -72,10 +74,12 @@ target_sources(common PRIVATE
 	FileSystem.h
 	General.h
 	HashCombine.h
+	HeterogeneousContainers.h
 	Image.h
 	LRUCache.h
 	HTTPDownloader.h
 	MemcpyFast.h
+	MemorySettingsInterface.h
 	MemsetFast.inl
 	MD5Digest.h
 	MRCHelpers.h
@@ -83,6 +87,7 @@ target_sources(common PRIVATE
 	PageFaultSource.h
 	PrecompiledHeader.h
 	ProgressCallback.h
+	ReadbackSpinManager.h
 	RedtapeWindows.h
 	SafeArray.h
 	ScopedGuard.h
