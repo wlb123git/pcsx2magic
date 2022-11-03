@@ -81,7 +81,7 @@ ALCH-0004:
   name: "Duel Savior Destiny [Messiah Box]"
   region: "NTSC-J"
 CPCS-01005:
-  name: "Gun Survivor 4 - Biohazard - Heroes Never Die [with GunCon2]"
+  name: "Gun Survivor 4 - BioHazard - Heroes Never Die [with GunCon2]"
   region: "NTSC-J"
   gsHWFixes:
     halfPixelOffset: 1 # Fixes character offset with flashlight and blurriness.
@@ -2475,6 +2475,9 @@ SCED-53622:
   gsHWFixes:
     autoFlush: 1 # Fixes pause menu backgrounds.
     roundSprite: 1 # Corrects proportions of fonts and pause-screen lines, adjusts display closer to software.
+SCED-53660:
+  name: "Jak X & Ratchet Gladiator [Demo]"
+  region: "PAL"
 SCED-53679:
   name: "Fire It Up Lads [Demo]"
   region: "PAL-E"
@@ -5107,6 +5110,13 @@ SCKA-20087:
     halfPixelOffset: 2 # Fixes misalignment and upscaling lines.
   memcardFilters:
     - "SCKA-20086"
+SCKA-20089:
+  name: "BioHazard 4"
+  region: "NTSC-K"
+  gameFixes:
+    - BlitInternalFPSHack # Fixes internal FPS detection.
+  gsHWFixes:
+    halfPixelOffset: 2 # Fixes blurriness.
 SCKA-20090:
   name: "God Hand"
   region: "NTSC-K"
@@ -8795,7 +8805,7 @@ SLAJ-25072:
     halfPixelOffset: 2 # Fix effects upscaling.
 SLAJ-25073:
   name: "Resident Evil 4"
-  region: "NTSC-Unk"
+  region: "NTSC-J"
   gameFixes:
     - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
@@ -14241,6 +14251,8 @@ SLES-52445:
   name: "Silent Hill 4 - The Room"
   region: "PAL-M5"
   compat: 5
+  speedHacks:
+    mvuFlagSpeedHack: 0 # Fixes invisible wall in front of the door leading to East 3F in the 2nd visit of Apartment world preventing Eileen's Nurse Outfit.
   gsHWFixes:
     halfPixelOffset: 1 # Fixes dark sides.
 SLES-52446:
@@ -17332,6 +17344,8 @@ SLES-53702:
   name: "Resident Evil 4"
   region: "PAL-M5"
   compat: 5
+  gameFixes:
+    - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
     halfPixelOffset: 2 # Fixes blurriness.
 SLES-53703:
@@ -17528,6 +17542,8 @@ SLES-53755:
 SLES-53756:
   name: "Resident Evil 4"
   region: "PAL-M5"
+  gameFixes:
+    - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
     halfPixelOffset: 2 # Fixes blurriness.
 SLES-53758:
@@ -22352,7 +22368,7 @@ SLKA-25035:
   name: "Mobile Suit Gundam - Lost War Chronicles"
   region: "NTSC-K"
 SLKA-25038:
-  name: "Gun Survivor 4 - Biohazard - Heroes Never Die"
+  name: "Gun Survivor 4 - BioHazard - Heroes Never Die"
   region: "NTSC-K"
   gsHWFixes:
     halfPixelOffset: 1 # Fixes character offset with flashlight and blurriness.
@@ -22666,9 +22682,11 @@ SLKA-25146:
   gsHWFixes:
     alignSprite: 1 # Fixes vertical lines.
 SLKA-25149:
-  name: "Silent Hill 4 The Room"
+  name: "Silent Hill 4 - The Room"
   region: "NTSC-K"
   compat: 5
+  speedHacks:
+    mvuFlagSpeedHack: 0 # Fixes invisible wall in front of the door leading to East 3F in the 2nd visit of Apartment world preventing Eileen's Nurse Outfit.
   gsHWFixes:
     halfPixelOffset: 1 # Fixes dark sides.
 SLKA-25150:
@@ -23297,6 +23315,13 @@ SLKA-25407:
   name: "Dragon Ball Z - Sparkling! Meteor"
   region: "NTSC-K"
   compat: 5
+SLKA-25410:
+  name: "BioHazard 4"
+  region: "NTSC-K"
+  gameFixes:
+    - BlitInternalFPSHack # Fixes internal FPS detection.
+  gsHWFixes:
+    halfPixelOffset: 2 # Fixes blurriness.
 SLKA-25413:
   name: "SD Gundam G - Generation Spirits"
   region: "NTSC-K"
@@ -23574,6 +23599,13 @@ SLPM-55131:
 SLPM-55138:
   name: "Harukanaru Toki no Naka de - Yume no Ukihashi Special"
   region: "NTSC-J"
+SLPM-55140:
+  name: "Silent Hill 4 - The Room [Konami Dendou Selection]"
+  region: "NTSC-J"
+  speedHacks:
+    mvuFlagSpeedHack: 0 # Fixes invisible wall in front of the door leading to East 3F in the 2nd visit of Apartment world preventing Eileen's Nurse Outfit.
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes dark sides.
 SLPM-55146:
   name: "Jikkyou Powerful Pro Yakyuu 2009"
   region: "NTSC-J"
@@ -24054,7 +24086,7 @@ SLPM-61018:
   name: "Abarenbou Princess [Trial]"
   region: "NTSC-J"
 SLPM-61039:
-  name: "Gun Survivor 4 - Biohazard - Heroes Never Die [Demo]"
+  name: "Gun Survivor 4 - BioHazard - Heroes Never Die [Demo]"
   region: "NTSC-J"
   gsHWFixes:
     halfPixelOffset: 1 # Fixes character offset with flashlight and blurriness.
@@ -28204,6 +28236,8 @@ SLPM-65574:
   name: "Silent Hill 4 - The Room"
   region: "NTSC-J"
   compat: 5
+  speedHacks:
+    mvuFlagSpeedHack: 0 # Fixes invisible wall in front of the door leading to East 3F in the 2nd visit of Apartment world preventing Eileen's Nurse Outfit.
   gsHWFixes:
     halfPixelOffset: 1 # Fixes dark sides.
 SLPM-65575:
@@ -29759,6 +29793,8 @@ SLPM-66031:
 SLPM-66032:
   name: "Silent Hill 4 [Konami The Best]"
   region: "NTSC-J"
+  speedHacks:
+    mvuFlagSpeedHack: 0 # Fixes invisible wall in front of the door leading to East 3F in the 2nd visit of Apartment world preventing Eileen's Nurse Outfit.
   gsHWFixes:
     halfPixelOffset: 1 # Fixes dark sides.
 SLPM-66033:
@@ -30398,6 +30434,8 @@ SLPM-66213:
   name: "BioHazard 4"
   region: "NTSC-J"
   compat: 5
+  gameFixes:
+    - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
     halfPixelOffset: 2 # Fixes blurriness.
 SLPM-66214:
@@ -32794,6 +32832,8 @@ SLPM-66863:
 SLPM-66864:
   name: "Umisho"
   region: "NTSC-J"
+  gsHWFixes:
+    alignSprite: 1 # Reduces misaligned line distortian when in QTE.
 SLPM-66866:
   name: "Jissen Pachi-Slot Hisshouhou! Hokuto no Ken 2"
   region: "NTSC-J"
@@ -33518,7 +33558,7 @@ SLPM-74104:
   name: "Momotarou Densetsu 15 [PlayStation 2 The Best]"
   region: "NTSC-J"
 SLPM-74201:
-  name: "Biohazard Outbreak [PlayStation 2 The Best]"
+  name: "BioHazard Outbreak [PlayStation 2 The Best]"
   region: "NTSC-J"
 SLPM-74202:
   name: "Fuuun Shinsengumi [PlayStation 2 The Best]"
@@ -33595,6 +33635,8 @@ SLPM-74228:
 SLPM-74229:
   name: "BioHazard 4 [PlayStation 2 The Best]"
   region: "NTSC-J"
+  gameFixes:
+    - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
     halfPixelOffset: 2 # Fixes blurriness.
 SLPM-74230:
@@ -33756,6 +33798,13 @@ SLPM-74278:
 SLPM-74286:
   name: "Shin Sangoku Musou 5 Special [PlayStation 2 The Best]"
   region: "NTSC-J"
+SLPM-74288:
+  name: "BioHazard 4"
+  region: "NTSC-J"
+  gameFixes:
+    - BlitInternalFPSHack # Fixes internal FPS detection.
+  gsHWFixes:
+    halfPixelOffset: 2 # Fixes blurriness.
 SLPM-74301:
   name: "Ryu ga Gotoku 2 [PlayStation 2 The Best]"
   region: "NTSC-J"
@@ -33791,7 +33840,7 @@ SLPM-74408:
   name: "Rakugaki Kingdom [PlayStation 2 The Best]"
   region: "NTSC-J"
 SLPM-74409:
-  name: "Gun Survivor 2 - Biohazard Code - Veronica [PlayStation 2 The Best]"
+  name: "Gun Survivor 2 - BioHazard Code - Veronica [PlayStation 2 The Best]"
   region: "NTSC-J"
 SLPM-74410:
   name: "Breath of Fire V - Dragon Quarter [PlayStation 2 The Best]"
@@ -42845,6 +42894,8 @@ SLUS-20873:
   name: "Silent Hill 4 - The Room"
   region: "NTSC-U"
   compat: 5
+  speedHacks:
+    mvuFlagSpeedHack: 0 # Fixes invisible wall in front of the door leading to East 3F in the 2nd visit of Apartment world preventing Eileen's Nurse Outfit.
   gsHWFixes:
     halfPixelOffset: 1 # Fixes dark sides.
 SLUS-20874:
