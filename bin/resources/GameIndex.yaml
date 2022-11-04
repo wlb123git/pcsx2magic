@@ -1844,6 +1844,8 @@ SCED-50750:
 SCED-50781:
   name: "Destruction Derby Arenas [Beta]"
   region: "PAL-M5"
+  gsHWFixes:
+    halfPixelOffset: 2 # Corrects shadow position.
 SCED-50825:
   name: "Official PlayStation 2 Magazine Demo 18"
   region: "PAL-M5"
@@ -2293,6 +2295,9 @@ SCED-52880:
     autoFlush: 1 # Fixes car shadows.
     roundSprite: 1 # Fixes misalgined text.
     halfPixelOffset: 1 # Fixes minor ghosting on objects.
+SCED-52899:
+  name: "Killzone [Bonus Disc]"
+  region: "PAL-M5"
 SCED-52932:
   name: "Bonus Demo 8"
   region: "PAL-M5"
@@ -2994,9 +2999,11 @@ SCES-50760:
     mipmap: 1
     halfPixelOffset: 1 # Fixes effect misalignment.
 SCES-50781:
-  name: "Destruction Derby Arena [Beta, Promo, & Full Retail]"
+  name: "Destruction Derby Arenas [Beta, Promo, & Full Retail]"
   region: "PAL-M6"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 2 # Corrects shadow position.
 SCES-50791:
   name: "Frequency"
   region: "PAL-M5"
@@ -3381,6 +3388,8 @@ SCES-51977:
 SCES-51979:
   name: "Destruction Derby Arenas"
   region: "PAL-M6"
+  gsHWFixes:
+    halfPixelOffset: 2 # Corrects shadow position.
 SCES-52004:
   name: "Killzone"
   region: "PAL-M6"
@@ -3737,6 +3746,8 @@ SCES-53247:
   compat: 5
   gameFixes:
     - XGKickHack # Fixes SPS.
+  clampModes:
+    eeClampMode: 2 # Fixes rare bug causing player to respawn when starting the race or during certain car crashes.
   patches:
     CBBC2E7F:
       content: |-
@@ -10118,6 +10129,8 @@ SLES-50423:
   name: "F1 2001"
   region: "PAL-M4"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLES-50424:
   name: "Cricket 2002"
   region: "PAL-E"
@@ -10143,6 +10156,8 @@ SLES-50430:
 SLES-50431:
   name: "F1 2001"
   region: "PAL-S"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLES-50432:
   name: "Tony Hawk Pro Skater 3"
   region: "PAL-Unk"
@@ -11082,9 +11097,13 @@ SLES-50874:
   name: "F1 2002"
   region: "PAL-M4"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLES-50875:
   name: "F1 2002"
   region: "PAL-I"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLES-50876:
   name: "Driv3r"
   region: "PAL-M5"
@@ -11127,6 +11146,9 @@ SLES-50897:
   name: "Super Trucks"
   region: "PAL-M6"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 2 # Gets rid of fog line.
+    roundSprite: 1 # Fixes lines in FMVs.
 SLES-50898:
   name: "X-Men - The Next Dimension"
   region: "PAL-E"
@@ -12489,8 +12511,8 @@ SLES-51547:
   gameFixes:
     - VUSyncHack # Fixes SPS in game.
 SLES-51548:
-  name: "This is Football"
-  region: "PAL-M3"
+  name: "X-Men 2 - Wolverine's Revenge"
+  region: "PAL"
 SLES-51553:
   name: "Chaos Legion"
   region: "PAL-M5"
@@ -12533,6 +12555,8 @@ SLES-51584:
   name: "F1 Career Challenge"
   region: "PAL-M4"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLES-51588:
   name: "Evil Dead - A Fistful of Boomstick [with Bonus DVD Movie]"
   region: "PAL-E"
@@ -17659,6 +17683,9 @@ SLES-53809:
   region: "PAL-E"
   gameFixes:
     - XGKickHack # Fixes black and white fighters.
+  speedHacks:
+    MTVUSpeedHack: 0 # Fixes game from crashing.
+    InstantVU1SpeedHack: 0 # Fixes graphical issues.
   patches:
     B6F9C8D3:
       content: |-
@@ -22252,6 +22279,11 @@ SLKA-15018:
     eeRoundMode: 1 # Fixes camera issue.
   gameFixes:
     - FpuNegDivHack # Fixes target loss issue.
+SLKA-15019:
+  name: "F1 Career Challenge"
+  region: "NTSC-K"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLKA-15021:
   name: "GrowLanser3"
   region: "NTSC-K"
@@ -24795,6 +24827,9 @@ SLPM-62255:
 SLPM-62256:
   name: "Super Trucks"
   region: "NTSC-J"
+  gsHWFixes:
+    halfPixelOffset: 2 # Gets rid of fog line.
+    roundSprite: 1 # Fixes lines in FMVs.
 SLPM-62257:
   name: "Rally Championship"
   region: "NTSC-J"
@@ -25717,6 +25752,9 @@ SLPM-62581:
   region: "NTSC-J"
   gameFixes:
     - XGKickHack # Fixes black and white fighters.
+  speedHacks:
+    MTVUSpeedHack: 0 # Fixes game from crashing.
+    InstantVU1SpeedHack: 0 # Fixes graphical issues.
   patches:
     0A1042EE:
       content: |-
@@ -26335,6 +26373,11 @@ SLPM-64528:
 SLPM-64532:
   name: "Digital Holmes"
   region: "NTSC-K"
+SLPM-64533:
+  name: "F1 2002"
+  region: "NTSC-K"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLPM-64534:
   name: "Psyvariar - Complete Edition"
   region: "NTSC-K"
@@ -27504,6 +27547,8 @@ SLPM-65335:
 SLPM-65336:
   name: "K-1 World Grand Prix - The Beast Attack!"
   region: "NTSC-J"
+  gsHWFixes:
+    alignSprite: 1 # Fixes upscaling lines.
 SLPM-65337:
   name: "Gegege no Kitaro - Ibun Youkaitan"
   region: "NTSC-J"
@@ -27798,6 +27843,8 @@ SLPM-65432:
 SLPM-65433:
   name: "K-1 World Grand Prix 2003"
   region: "NTSC-J"
+  gsHWFixes:
+    alignSprite: 1 # Fixes upscaling lines.
 SLPM-65434:
   name: "Battle Gear 3"
   region: "NTSC-J"
@@ -34208,10 +34255,10 @@ SLPS-20115:
   name: "Gendai Yougo no Kiso Chishiki 2001"
   region: "NTSC-J"
 SLPS-20120:
-  name: "Formula One 2001"
+  name: "F1 2001"
   region: "NTSC-J"
-  gameFixes:
-    - XGKickHack
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLPS-20121:
   name: "Kanon"
   region: "NTSC-J"
@@ -34371,6 +34418,8 @@ SLPS-20198:
 SLPS-20199:
   name: "F1 2002"
   region: "NTSC-J"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLPS-20202:
   name: "Coloball 2002"
   region: "NTSC-J"
@@ -34557,6 +34606,11 @@ SLPS-20293:
 SLPS-20294:
   name: "Hanabi Shokunin Ninarou 2"
   region: "NTSC-J"
+SLPS-20295:
+  name: "F1 Career Challenge"
+  region: "NTSC-J"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLPS-20296:
   name: "Dugout '03 - The Turning Point"
   region: "NTSC-J"
@@ -34974,6 +35028,9 @@ SLPS-20453:
   compat: 5
   gameFixes:
     - XGKickHack # Fixes black and white fighters.
+  speedHacks:
+    MTVUSpeedHack: 0 # Fixes game from crashing.
+    InstantVU1SpeedHack: 0 # Fixes graphical issues.
   patches:
     602B7A48:
       content: |-
@@ -37193,6 +37250,9 @@ SLPS-25578:
   region: "NTSC-J"
   gameFixes:
     - XGKickHack # Fixes black and white fighters.
+  speedHacks:
+    MTVUSpeedHack: 0 # Fixes game from crashing.
+    InstantVU1SpeedHack: 0 # Fixes graphical issues.
   patches:
     F8664E20:
       content: |-
@@ -40089,6 +40149,8 @@ SLUS-20263:
 SLUS-20264:
   name: "F1 2001"
   region: "NTSC-U"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLUS-20265:
   name: "007 - Agent Under Fire"
   region: "NTSC-U"
@@ -40952,6 +41014,8 @@ SLUS-20454:
 SLUS-20455:
   name: "F1 2002"
   region: "NTSC-U"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLUS-20456:
   name: "Soccer Mania"
   region: "NTSC-U"
@@ -42060,6 +42124,8 @@ SLUS-20691:
 SLUS-20693:
   name: "F1 Career Challenge"
   region: "NTSC-U"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes black void when upscaling.
 SLUS-20694:
   name: "Onimusha 3 - Demon Siege"
   region: "NTSC-U"
@@ -42309,6 +42375,9 @@ SLUS-20748:
   name: "Super Trucks Racing"
   region: "NTSC-U"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 2 # Gets rid of fog line.
+    roundSprite: 1 # Fixes lines in FMVs.
 SLUS-20749:
   name: "Rugby 2004"
   region: "NTSC-U"
@@ -42801,6 +42870,8 @@ SLUS-20855:
   name: "Destruction Derby Arenas"
   region: "NTSC-U"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 2 # Corrects shadow position.
 SLUS-20856:
   name: "Spy Fiction"
   region: "NTSC-U"
