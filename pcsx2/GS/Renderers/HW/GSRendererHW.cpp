@@ -244,7 +244,7 @@ GSTexture* GSRendererHW::GetOutput(int i, int& y_offset)
 	const int fb_width = std::min<int>(std::min<int>(GetFramebufferWidth(), DISPFB.FBW * 64) + (int)DISPFB.DBX, 2048);
 	const int display_height = offsets.y * ((isinterlaced() && !m_regs->SMODE2.FFMD) ? 2 : 1);
 	const int display_offset = GetResolutionOffset(i).y;
-	int fb_height = std::min<int>(std::min<int>(GetFramebufferHeight(), display_height) + (int)DISPFB.DBY, 2048);
+	int fb_height = (std::min<int>(GetFramebufferHeight(), display_height) + (int)DISPFB.DBY) % 2048;
 	// If there is a negative vertical offset on the picture, we need to read more.
 	if (display_offset < 0)
 	{
@@ -3948,7 +3948,15 @@ bool GSRendererHW::PossibleCLUTDraw()
 		return false;
 
 	// Make sure it's a division of 8 in width to avoid bad draws. Points will go from 0-7 inclusive, but sprites etc will do 0-16 exclusive.
-	const int draw_divder_match = ((m_vt.m_primclass == GS_POINT_CLASS) ? ((static_cast<int>(m_vt.m_max.p.x + 1) & ~1) % 8) : (static_cast<int>(m_vt.m_max.p.x) % 8)) <= 1;
+	int draw_divder_match = false;
+	const int valid_sizes[] = { 8, 16, 32, 64 };
+
+	for (int i = 0; i < 4; i++) {
+		draw_divder_match = ((m_vt.m_primclass == GS_POINT_CLASS) ? ((static_cast<int>(m_vt.m_max.p.x + 1) & ~1) == valid_sizes[i]) : (static_cast<int>(m_vt.m_max.p.x) == valid_sizes[i]));
+		
+		if (draw_divder_match)
+			break;
+	}
 	// Make sure it's kinda CLUT sized, at least. Be wary, it can draw a line at a time (Guitar Hero - Metallica)
 	// Driver Parallel Lines draws a bunch of CLUT's at once, ending up as a 64x256 draw, very annoying.
 	const float draw_width = (m_vt.m_max.p.x - m_vt.m_min.p.x);
