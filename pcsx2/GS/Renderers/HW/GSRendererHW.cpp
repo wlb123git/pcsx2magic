@@ -93,8 +93,8 @@ GSVector2i GSRendererHW::GetOutputSize(int real_h)
 	// Include negative display offsets in the height here.
 	crtc_size.y = std::max(crtc_size.y, real_h);
 
-	return GSVector2i(static_cast<float>(crtc_size.x) * GSConfig.UpscaleMultiplier,
-		static_cast<float>(crtc_size.y) * GSConfig.UpscaleMultiplier);
+	return GSVector2i(static_cast<float>(crtc_size.x),
+		static_cast<float>(crtc_size.y));
 }
 
 void GSRendererHW::SetTCOffset()
@@ -254,7 +254,7 @@ GSTexture* GSRendererHW::GetOutput(int i, int& y_offset)
 
 	GSTexture* t = nullptr;
 
-	if (GSTextureCache::Target* rt = m_tc->LookupDisplayTarget(TEX0, GetOutputSize(fb_height), fb_width, fb_height))
+	if (GSTextureCache::Target* rt = m_tc->LookupDisplayTarget(TEX0, GetOutputSize(fb_height) * GSConfig.UpscaleMultiplier, fb_width, fb_height))
 	{
 		t = rt->m_texture;
 
@@ -293,9 +293,9 @@ GSTexture* GSRendererHW::GetFeedbackOutput()
 	GSVector2i size = GetOutputSize(fb_height);
 
 	if (m_regs->DISP[m_regs->EXTBUF.FBIN & 1].DISPFB.DBX)
-		size.x += m_regs->DISP[m_regs->EXTBUF.FBIN & 1].DISPFB.DBX * static_cast<int>(GSConfig.UpscaleMultiplier);
+		size.x += m_regs->DISP[m_regs->EXTBUF.FBIN & 1].DISPFB.DBX;
 
-	GSTextureCache::Target* rt = m_tc->LookupDisplayTarget(TEX0, GetOutputSize(fb_height), fb_height, size.x);
+	GSTextureCache::Target* rt = m_tc->LookupDisplayTarget(TEX0, GetOutputSize(fb_height) * GSConfig.UpscaleMultiplier, size.x, fb_height);
 
 	GSTexture* t = rt->m_texture;
 
@@ -3918,7 +3918,8 @@ bool GSRendererHW::PossibleCLUTDraw()
 
 	// Writing to the framebuffer for output. We're not interested. - Note: This stops NFS HP2 Busted screens working, but they're glitchy anyway
 	// what NFS HP2 really needs is a kind of shuffle with mask, 32bit target is interpreted as 16bit and masked.
-	if ((m_regs->DISP[0].DISPFB.Block() == m_context->FRAME.Block()) || (m_regs->DISP[1].DISPFB.Block() == m_context->FRAME.Block()))
+	if ((m_regs->DISP[0].DISPFB.Block() == m_context->FRAME.Block()) || (m_regs->DISP[1].DISPFB.Block() == m_context->FRAME.Block()) ||
+		(PRIM->TME && ((m_regs->DISP[0].DISPFB.Block() == m_context->TEX0.TBP0) || (m_regs->DISP[1].DISPFB.Block() == m_context->TEX0.TBP0)) && !(m_mem.m_clut.IsInvalid() & 2)))
 		return false;
 
 	// Ignore recursive/shuffle effects, but possible it will recursively draw, but make sure it's staying in page width
@@ -3962,7 +3963,7 @@ bool GSRendererHW::PossibleCLUTDraw()
 	const float draw_width = (m_vt.m_max.p.x - m_vt.m_min.p.x);
 	const float draw_height = (m_vt.m_max.p.y - m_vt.m_min.p.y);
 	const bool valid_size = ((draw_width >= min_clut_width || draw_height >= min_clut_height))
-							&& ((m_vt.m_max.p.x <= page_width) && draw_divder_match); // Make sure draw is multiples of 8 wide (AC5 midetection).
+							&& (((draw_width < page_width && draw_height <= page_height) || (draw_width == page_width)) && draw_divder_match); // Make sure draw is multiples of 8 wide (AC5 midetection).
 	
 	// Make sure the draw hits the next CLUT and it's marked as invalid (kind of a sanity check).
 	// We can also allow draws which are of a sensible size within the page, as they could also be CLUT draws (or gradients for the CLUT).
