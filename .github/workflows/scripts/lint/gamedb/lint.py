@@ -29,6 +29,7 @@ allowed_game_fixes = [
     "SkipMPEGHack",
     "OPHFlagHack",
     "EETimingHack",
+    "InstantDMAHack",
     "DMABusyHack",
     "GIFFIFOHack",
     "VIFFIFOHack",
