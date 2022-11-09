@@ -5526,6 +5526,8 @@ SCPS-15030:
 SCPS-15031:
   name: "Train Simulator Real, The"
   region: "NTSC-J"
+  gsHWFixes:
+    texturePreloading: 1 # Increases performance due to massive hash cache size.
 SCPS-15032:
   name: "Formula One 2002"
   region: "NTSC-J"
@@ -5544,6 +5546,8 @@ SCPS-15034:
 SCPS-15035:
   name: "Train Simulator Real, The - Keihin Keikyu"
   region: "NTSC-J"
+  gsHWFixes:
+    texturePreloading: 1 # Increases performance due to massive hash cache size.
 SCPS-15036:
   name: "Kaitou Sly Cooper"
   region: "NTSC-J"
@@ -12767,6 +12771,8 @@ SLES-51681:
 SLES-51682:
   name: "Headhunter - Redemption"
   region: "PAL-E"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes ghosting.
 SLES-51686:
   name: "Pitfall - The Lost Expedition"
   region: "PAL-E"
@@ -14491,9 +14497,13 @@ SLES-52510:
 SLES-52511:
   name: "Headhunter - Redemption"
   region: "PAL-E"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes ghosting.
 SLES-52512:
   name: "Headhunter - Redemption"
   region: "PAL-M4"
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes ghosting.
 SLES-52515:
   name: "Ultimate Casino"
   region: "PAL-E"
@@ -18741,6 +18751,8 @@ SLES-54218:
 SLES-54221:
   name: "LEGO Star Wars II - The Original Trilogy"
   region: "PAL-M6"
+  gsHWFixes:
+    cpuCLUTRender: 1 # Fixes ghosting on objects and people.
   memcardFilters: # Allows import of characters from Lego Star Wars 1.
     - "SLES-54221"
     - "SLES-53194"
@@ -30969,7 +30981,7 @@ SLPM-66302:
   name: "Clannad"
   region: "NTSC-J"
   gsHWFixes:
-    pointListPalette: 1
+    cpuCLUTRender: 1 # Fixes colours.
 SLPM-66307:
   name: "Sengoku Musou 2"
   region: "NTSC-J"
@@ -31970,6 +31982,8 @@ SLPM-66571:
 SLPM-66572:
   name: "LEGO Star Wars II - The Original Trilogy"
   region: "NTSC-J"
+  gsHWFixes:
+    cpuCLUTRender: 1 # Fixes ghosting on objects and people.
   memcardFilters:
     - "SLPM-66572"
     - "SLPS-20423"
@@ -32115,7 +32129,7 @@ SLPM-66611:
   name: "Tomoyo After - It's Wonderful Life [CS Edition]"
   region: "NTSC-J"
   gsHWFixes:
-    pointListPalette: 1
+    cpuCLUTRender: 1 # Fixes Colours.
 SLPM-66612:
   name: "School Love [Limited Edition]"
   region: "NTSC-J"
@@ -42894,6 +42908,8 @@ SLUS-20817:
   name: "Headhunter - Redemption"
   region: "NTSC-U"
   compat: 5
+  gsHWFixes:
+    halfPixelOffset: 1 # Fixes ghosting.
 SLUS-20818:
   name: "Bionicle"
   region: "NTSC-U"
@@ -46020,6 +46036,8 @@ SLUS-21408:
 SLUS-21409:
   name: "LEGO Star Wars II - The Original Trilogy"
   region: "NTSC-U"
+  gsHWFixes:
+    cpuCLUTRender: 1 # Fixes ghosting on objects and people.
   memcardFilters:
     - "SLUS-21409"
     - "SLUS-21083"
