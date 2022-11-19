@@ -823,11 +823,24 @@ GSVector2i GSRendererHW::GetTargetSize(GSVector2i* unscaled_size)
 		}
 	}
 
+	u32 width = m_context->FRAME.FBW * 64u;
+
+	// If it's a channel shuffle, it'll likely be just a single page, so assume full screen.
+	if (m_channel_shuffle)
+	{
+		const int page_x = GSLocalMemory::m_psm[m_context->FRAME.PSM].pgs.x - 1;
+		const int page_y = GSLocalMemory::m_psm[m_context->FRAME.PSM].pgs.y - 1;
+
+		// Round up the page as channel shuffles are generally done in pages at a time
+		width = (std::max(static_cast<u32>(GetResolution().x), width) + page_x) & ~page_x;
+		min_height = (std::max(static_cast<u32>(GetResolution().y), min_height) + page_y) & ~page_y;
+	}
+
 	// Align to even lines, reduces the chance of tiny resizes.
 	min_height = Common::AlignUpPow2(min_height, 2);
 
-	const u32 width = m_context->FRAME.FBW * 64u;
-	const u32 height = m_tc->GetTargetHeight(m_context->FRAME.FBP, m_context->FRAME.FBW, m_context->FRAME.PSM, min_height);
+	u32 height = m_tc->GetTargetHeight(m_context->FRAME.FBP, m_context->FRAME.FBW, m_context->FRAME.PSM, min_height);
+
 	if (unscaled_size)
 	{
 		unscaled_size->x = static_cast<int>(width);
@@ -1705,8 +1718,8 @@ void GSRendererHW::Draw()
 	{
 		// We still need to make sure the dimensions of the targets match.
 		const GSVector2 up_s(GetTextureScaleFactor());
-		const int new_w = std::max(t_size.x, std::max(rt ? rt->m_texture->GetWidth() : 0, ds ? ds->m_texture->GetWidth() : 0));
-		const int new_h = std::max(t_size.y, std::max(rt ? rt->m_texture->GetHeight() : 0, ds ? ds->m_texture->GetHeight() : 0));
+		int new_w = std::max(t_size.x, std::max(rt ? rt->m_texture->GetWidth() : 0, ds ? ds->m_texture->GetWidth() : 0));
+		int new_h = std::max(t_size.y, std::max(rt ? rt->m_texture->GetHeight() : 0, ds ? ds->m_texture->GetHeight() : 0));
 
 		if (rt)
 		{
@@ -3937,8 +3950,6 @@ bool GSRendererHW::PossibleCLUTDraw()
 		return false;
 
 	// Max size for a CLUT/Current page size.
-	constexpr float clut_width = 16.0f;
-	constexpr float clut_height = 16.0f;
 	constexpr float min_clut_width = 7.0f;
 	constexpr float min_clut_height = 1.0f;
 	const float page_width = static_cast<float>(psm.pgs.x);
@@ -4017,7 +4028,7 @@ bool GSRendererHW::PossibleCLUTDrawAggressive()
 	if (m_vt.m_eq.z != 0x1)
 		return false;
 
-	if (!((m_vt.m_primclass == GS_POINT_CLASS || m_vt.m_primclass == GS_LINE_CLASS) || ((m_mem.m_clut.GetCLUTCBP() >> 5) >= m_context->FRAME.FBP && (m_context->FRAME.FBP + 1) >= (m_mem.m_clut.GetCLUTCBP() >> 5) && m_vt.m_primclass == GS_SPRITE_CLASS)))
+	if (!((m_vt.m_primclass == GS_POINT_CLASS || m_vt.m_primclass == GS_LINE_CLASS) || ((m_mem.m_clut.GetCLUTCBP() >> 5) >= m_context->FRAME.FBP && (m_context->FRAME.FBP + 1U) >= (m_mem.m_clut.GetCLUTCBP() >> 5) && m_vt.m_primclass == GS_SPRITE_CLASS)))
 		return false;
 
 	// Avoid invalidating anything here, we just want to avoid the thing being drawn on the GPU.
