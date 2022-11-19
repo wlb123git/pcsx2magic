@@ -257,6 +257,11 @@
             }
           },
           "additionalProperties": false
+        },
+        "cdvdOffset": {
+          "type": "string",
+          "description": "",
+          "pattern": "^[A-Z\\d]+-?[A-Z\\d]+$"
         }
       },
       "required": ["name", "region"],

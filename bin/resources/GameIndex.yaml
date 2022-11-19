@@ -577,7 +577,7 @@ SCAJ-20019:
   region: "NTSC-J"
 SCAJ-20020:
   name: "Drag-on Dragoon"
-  region: "NTSC-J"
+  region: "NTSC-Ch-J"
   clampModes:
     eeClampMode: 3 # Characters are visible in-game.
   gsHWFixes:
@@ -1381,6 +1381,8 @@ SCAJ-20182:
   region: "NTSC-Unk"
   gameFixes:
     - FpuMulHack
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better with partial preload.
 SCAJ-20183:
   name: "Wild ARMs - The Vth Vanguard"
   region: "NTSC-J"
@@ -1412,9 +1414,11 @@ SCAJ-20192:
   region: "NTSC-Unk"
 SCAJ-20193:
   name: "Tales of Destiny [Director's Cut] [Premium Box]"
-  region: "NTSC-Unk"
+  region: "NTSC-Ch-J"
   gameFixes:
     - FpuMulHack
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better with partial preload.
 SCAJ-20194:
   name: "Minna no Golf 4 [PlayStation 2 The Best]"
   region: "NTSC-Unk"
@@ -11209,6 +11213,7 @@ SLES-50876:
   gsHWFixes:
     autoFlush: 1
     halfPixelOffset: 2 # Fixes misaligned lighting.
+    cpuCLUTRender: 1 # Fixes janky coloured cars.
 SLES-50877:
   name: "TimeSplitters 2"
   region: "PAL-M5"
@@ -13854,6 +13859,7 @@ SLES-52153:
   gsHWFixes:
     autoFlush: 1
     halfPixelOffset: 2 # Fixes misaligned lighting.
+    cpuCLUTRender: 1 # Fixes janky coloured cars.
 SLES-52155:
   name: "EyeToy - L'Eredita"
   region: "PAL-I"
@@ -15766,6 +15772,7 @@ SLES-52988:
   gsHWFixes:
     autoFlush: 1 # Fixes bloom.
     roundSprite: 1 # Fixes misalliged bloom.
+    deinterlace: 6 # Game requires blend tff deinterlacing when auto for 'fixing' subtitles flickering or half weaved.
   memcardFilters: # Reads Command Mission save for bonus boss.
     - "SLES-52988"
     - "SLES-52832"
@@ -22028,6 +22035,8 @@ SLES-55579:
     eeRoundMode: 1
   clampModes:
     vuClampMode: 0
+  gsHWFixes:
+    deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing when auto for the FMVs.
 SLES-55581:
   name: "FIFA 10"
   region: "PAL-M5"
@@ -23056,6 +23065,7 @@ SLKA-25196:
   gsHWFixes:
     autoFlush: 1
     halfPixelOffset: 2 # Fixes misaligned lighting.
+    cpuCLUTRender: 1 # Fixes janky coloured cars.
 SLKA-25198:
   name: "Tenchu Kurenai"
   region: "NTSC-K"
@@ -29154,6 +29164,7 @@ SLPM-65741:
   gsHWFixes:
     autoFlush: 1
     halfPixelOffset: 2 # Fixes misaligned lighting.
+    cpuCLUTRender: 1 # Fixes janky coloured cars.
 SLPM-65742:
   name: "Cool Girl [Konami the Best]"
   region: "NTSC-J"
@@ -38182,6 +38193,8 @@ SLPS-25715:
   region: "NTSC-J"
   gameFixes:
     - FpuMulHack
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better with partial preload.
 SLPS-25716:
   name: "Digimon Savers - Another Mission"
   region: "NTSC-J"
@@ -38603,6 +38616,8 @@ SLPS-25841:
   region: "NTSC-J"
   gameFixes:
     - FpuMulHack
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better with partial preload.
   memcardFilters: # Allows import of non-DC Tales of Destiny data.
     - "SLPS-25841"
     - "SLPS-25842"
@@ -38613,6 +38628,8 @@ SLPS-25842:
   compat: 5
   gameFixes:
     - FpuMulHack
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better with partial preload.
   memcardFilters:
     - "SLPS-25841"
     - "SLPS-25842"
@@ -42079,6 +42096,7 @@ SLUS-20587:
   gsHWFixes:
     autoFlush: 1
     halfPixelOffset: 2 # Fixes misaligned lighting.
+    cpuCLUTRender: 1 # Fixes janky coloured cars.
 SLUS-20588:
   name: "Activision Anthology"
   region: "NTSC-U"
@@ -43846,6 +43864,7 @@ SLUS-20960:
   gsHWFixes:
     autoFlush: 1 # Fixes bloom.
     roundSprite: 1 # Fixes misalliged bloom.
+    deinterlace: 6 # Game requires blend tff deinterlacing when auto for 'fixing' subtitles flickering or half weaved.
   memcardFilters:
     - "SLUS-20960"
     - "SLUS-20903"
@@ -48480,6 +48499,8 @@ SLUS-21902:
     eeRoundMode: 1
   clampModes:
     vuClampMode: 0
+  gsHWFixes:
+    deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing when auto for the FMVs.
 SLUS-21904:
   name: "Teenage Mutant Ninja Turtles - Smash-Up"
   region: "NTSC-U"

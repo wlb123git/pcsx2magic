@@ -1519,6 +1519,7 @@ void VMManager::Execute()
 		// We need to switch the cpus out, and reset the new ones if so.
 		s_cpu_provider_pack->ApplyConfig();
 		SysClearExecutionCache();
+		vtlb_ResetFastmem();
 	}
 
 	// Execute until we're asked to stop.
@@ -1596,6 +1597,9 @@ void VMManager::CheckForCPUConfigChanges(const Pcsx2Config& old_config)
 	SetCPUState(EmuConfig.Cpu.sseMXCSR, EmuConfig.Cpu.sseVUMXCSR);
 	SysClearExecutionCache();
 	memBindConditionalHandlers();
+
+	if (EmuConfig.Cpu.Recompiler.EnableFastmem != old_config.Cpu.Recompiler.EnableFastmem)
+		vtlb_ResetFastmem();
 
 	// did we toggle recompilers?
 	if (EmuConfig.Cpu.CpusChanged(old_config.Cpu))

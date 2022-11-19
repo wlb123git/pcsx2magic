@@ -129,6 +129,9 @@
     <ProjectReference Include="..\3rdparty\libusb\libusb.vcxproj">
       <Project>{349ee8f9-7d25-4909-aaf5-ff3fade72187}</Project>
     </ProjectReference>
+    <ProjectReference Include="..\3rdparty\zydis\zydis.vcxproj">
+      <Project>{67d0160c-0fe4-44b9-ac2e-82bbcf4104df}</Project>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Manifest Include="..\pcsx2\windows\PCSX2.manifest" />
