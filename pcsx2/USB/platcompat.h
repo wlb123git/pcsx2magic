@@ -43,7 +43,7 @@ typedef SSIZE_T ssize_t;
 #endif
 #endif
 
-#if defined(_WIN32)
+#ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
