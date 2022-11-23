@@ -126,7 +126,8 @@ namespace usb_python2
 
 		void NativeInput::UpdateKeyStates(TSTDSTRING keybind)
 		{
-			if (!InputManager::HasHook()) {
+			if (!InputManager::HasHook())
+			{
 				// Input configuration menu also uses hooks so the I/O gets overwritten.
 				// If ParseInput is ever called while there is no hook set, it most likely means that the user just changed keybinds.
 				Reset();

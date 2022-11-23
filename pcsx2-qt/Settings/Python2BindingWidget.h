@@ -39,7 +39,7 @@ public:
 	__fi ControllerSettingsDialog* getDialog() const { return m_dialog; }
 
 private Q_SLOTS:
-	void unbindKeyClicked(QTableWidget *tableWidget);
+	void unbindKeyClicked(QTableWidget* tableWidget);
 
 	void onBindKeyMotorClicked();
 

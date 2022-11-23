@@ -96,11 +96,13 @@ Python2SettingsWidget::Python2SettingsWidget(const GameList::Entry* entry, Setti
 		std::pair("noop", "NOOP"),
 	};
 
-	for (auto const& x : deviceApiList) {
+	for (auto const& x : deviceApiList)
+	{
 		int curIndex = m_ui.deviceApi->count();
 		m_ui.deviceApi->addItem(QString(x.second.c_str()), x.first.c_str());
 
-		if (x.first == deviceApi) {
+		if (x.first == deviceApi)
+		{
 			m_ui.deviceApi->setCurrentIndex(curIndex);
 		}
 	}

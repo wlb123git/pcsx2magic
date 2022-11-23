@@ -177,13 +177,17 @@ void GameList::FillBootParametersForEntry(VMBootParameters* params, const Entry*
 		std::string filename(VMManager::GetGameSettingsPath(entry->serial, entry->crc));
 		std::unique_ptr<INISettingsInterface> sif = std::make_unique<INISettingsInterface>(std::move(filename));
 
-		if (FileSystem::FileExists(sif->GetFileName().c_str())) {
+		if (FileSystem::FileExists(sif->GetFileName().c_str()))
+		{
 			sif->Load();
 
-			if (sif->ContainsValue("Python2/Game", "PatchFile")) {
+			if (sif->ContainsValue("Python2/Game", "PatchFile"))
+			{
 				params->python2_patch_file = sif->GetStringValue("Python2/Game", "PatchFile", "");
 				printf("Loading patch file! %s\n", params->python2_patch_file.value().c_str());
-			} else {
+			}
+			else
+			{
 				params->python2_patch_file = "";
 			}
 		}

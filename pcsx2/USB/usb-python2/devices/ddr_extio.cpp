@@ -37,12 +37,13 @@ namespace usb_python2
 	bool isMinimaidConnected = false;
 	bool isUsingBtoolLights = false;
 
-	extio_device::extio_device() {
-		#ifdef INCLUDE_MINIMAID
+	extio_device::extio_device()
+	{
+#ifdef INCLUDE_MINIMAID
 		isMinimaidConnected = mm_connect_minimaid() == MINIMAID_CONNECTED;
-		#endif
+#endif
 
-		#ifdef INCLUDE_BTOOLS
+#ifdef INCLUDE_BTOOLS
 		HINSTANCE hDDRIO = LoadLibraryA("ddrio.dll");
 		m_ddr_io_set_lights_extio = (ddr_io_set_lights_extio_type*)GetProcAddress(hDDRIO, "ddr_io_set_lights_extio");
 
@@ -52,7 +53,7 @@ namespace usb_python2
 		//turn the lights off during boot.
 		if (isUsingBtoolLights)
 			m_ddr_io_set_lights_extio(0);
-		#endif
+#endif
 	}
 
 	// Reference: https://github.com/nchowning/open-io/blob/master/extio-emulator.ino
@@ -61,12 +62,12 @@ namespace usb_python2
 		if (!isOpen)
 			return;
 
-		#if 0
+#if 0
 		printf("EXTIO packet: ");
 		for (int i = 0; i < packet.size(); i++)
 			printf("%02x ", packet[i]);
 		printf("\n");
-		#endif
+#endif
 
 		if (packet.size() != 4)
 			return;
@@ -93,7 +94,7 @@ namespace usb_python2
 			return;
 		}
 
-		#if defined(INCLUDE_MINIMAID) || defined(INCLUDE_BTOOLS)
+#if defined(INCLUDE_MINIMAID) || defined(INCLUDE_BTOOLS)
 		const auto p1PanelLights = packet[0] & 0x7f;
 		const auto p2PanelLights = packet[1] & 0x7f;
 		const auto neonLights = packet[2];
@@ -146,7 +147,7 @@ namespace usb_python2
 
 			oldExtioState = extioState;
 		}
-		#endif
+#endif
 
 		std::vector<uint8_t> response;
 		response.push_back(0x11);

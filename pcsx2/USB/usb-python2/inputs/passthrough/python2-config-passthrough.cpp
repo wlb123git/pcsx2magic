@@ -91,7 +91,7 @@ namespace usb_python2
 			}
 		};
 
-		void ConfigurePython2Passthrough(Python2DlgConfig &config)
+		void ConfigurePython2Passthrough(Python2DlgConfig& config)
 		{
 			ScopedCoreThreadPause paused_core;
 

@@ -264,8 +264,8 @@ struct cdvdStruct
 	uint16_t bit_length;
 	uint16_t data_out_offset;
 	uint8_t Kc[16];
-	BitTable *bitTablePtr;
-	uint8_t *data_out_ptr;
+	BitTable* bitTablePtr;
+	uint8_t* data_out_ptr;
 	uint16_t lastBitTable;
 	BitBlockProccessed bitBlocks[64];
 	uint8_t pub_icvps2[8];

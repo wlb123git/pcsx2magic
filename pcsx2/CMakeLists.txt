@@ -515,7 +515,7 @@ set(pcsx2USBSourcesQt
 	USB/usb-python2/inputs/native/usb-python2-native.cpp
 	USB/usb-python2/patches.cpp
 	USB/usb-python2/api_init_linux.cpp
-	)
+)
 
 # USB headers
 set(pcsx2USBHeaders
@@ -607,7 +607,7 @@ set(pcsx2USBHeadersQt
 	USB/usb-python2/inputs/passthrough/usb-python2-passthrough.h
 	USB/usb-python2/inputs/native/usb-python2-native.h
 	USB/usb-python2/patches.h
-	)
+)
 
 if(TARGET PulseAudio::PulseAudio)
 	list(APPEND pcsx2USBSources USB/usb-mic/audiodev-pulse.cpp)

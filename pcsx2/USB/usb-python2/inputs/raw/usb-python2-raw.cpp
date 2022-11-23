@@ -83,8 +83,8 @@ namespace usb_python2
 			usageLength = countof(usage);
 
 			if (HidP_GetUsages(
-					 HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, pPreparsedData,
-					 (PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid) == HIDP_STATUS_SUCCESS)
+					HidP_Input, pButtonCaps->UsagePage, 0, usage, &usageLength, pPreparsedData,
+					(PCHAR)pRawInput->data.hid.bRawData, pRawInput->data.hid.dwSizeHid) == HIDP_STATUS_SUCCESS)
 			{
 				for (uint32_t i = 0; i < usageLength; i++)
 				{
@@ -129,7 +129,6 @@ namespace usb_python2
 								usageCountHats[i] = value == i;
 							break;
 					}
-
 				}
 			}
 
