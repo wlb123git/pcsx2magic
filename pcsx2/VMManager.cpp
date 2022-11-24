@@ -543,7 +543,8 @@ void VMManager::LoadPatches(const std::string& serial, u32 crc, bool show_messag
 			fmt::format_to(std::back_inserter(message), "{}{} cheat patches", (patch_count > 0) ? " and " : "", cheat_count);
 		}
 
-		if (s_python2_patch_file.size() > 0) {
+		if (s_python2_patch_file.size() > 0)
+		{
 			cheat_count += LoadPatchesFromFile(s_python2_patch_file);
 			if (cheat_count > 0)
 			{
@@ -672,11 +673,13 @@ void VMManager::UpdateRunningGame(bool resetting, bool game_starting)
 		new_serial = GSDumpReplayer::GetDumpSerial();
 	}
 
-	if (s_is_python2) {
+	if (s_is_python2)
+	{
 		new_crc = ElfCRC = s_python2_crc;
 		new_serial = s_python2_serial;
 
-		if (resetting) {
+		if (resetting)
+		{
 			ReloadPatches(game_starting, false);
 		}
 	}
@@ -864,12 +867,15 @@ bool VMManager::ApplyBootParameters(VMBootParameters params, std::string* state_
 	}
 
 	s_is_python2 = params.is_python2.has_value() && params.is_python2.value();
-	if (s_is_python2) {
+	if (s_is_python2)
+	{
 		// Set parameters for Python 2
 		s_python2_crc = params.python2_crc.has_value() ? params.python2_crc.value() : 0;
 		s_python2_serial = params.python2_serial.has_value() ? params.python2_serial.value() : "";
 		s_python2_patch_file = params.python2_patch_file.has_value() ? params.python2_patch_file.value() : "";
-	} else {
+	}
+	else
+	{
 		s_python2_crc = 0;
 		s_python2_serial = "";
 		s_python2_patch_file = "";

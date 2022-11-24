@@ -76,7 +76,7 @@ namespace usb_python2
 			}
 		};
 
-		void ConfigurePython2Btools(Python2DlgConfig &config)
+		void ConfigurePython2Btools(Python2DlgConfig& config)
 		{
 			ScopedCoreThreadPause paused_core;
 

@@ -25,7 +25,7 @@ namespace usb_python2
 			int Reset() { return 0; }
 			bool isPassthrough() { return false; }
 
-			void UpdateKeyStates(std::string keybind) {};
+			void UpdateKeyStates(std::string keybind){};
 			bool GetKeyState(std::string keybind) { return false; };
 			bool GetKeyStateOneShot(std::string keybind) { return false; };
 			double GetKeyStateAnalog(std::string keybind) { return 0; };

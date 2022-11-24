@@ -120,20 +120,19 @@ uint16_t g_MemoryCardKeyIndexes[72] = {
 	0x0018, 0xFFFF, 0xFFFF, 0x001C, 0xFFFF, 0xFFFF, 0x0020, 0xFFFF, 0xFFFF, 0x0024, 0xFFFF, 0xFFFF, 0x0028, 0xFFFF, 0xFFFF, 0x002C, 0xFFFF, 0xFFFF,
 	0x0030, 0x0048, 0x0060, 0x0034, 0x004C, 0x0064, 0x0038, 0x0050, 0x0068, 0x003C, 0x0054, 0x006C, 0x0040, 0x0058, 0x0070, 0x0044, 0x005C, 0x0074,
 	0x0000, 0x1000, 0x1001, 0x0004, 0x1002, 0x1003, 0x0008, 0x1004, 0x1005, 0x000C, 0x1006, 0x1007, 0x0010, 0x1008, 0x1009, 0x0014, 0x100A, 0x100B,
-	0x0090, 0x00A8, 0x00A8, 0x0094, 0x00AC, 0x00AC, 0x0098, 0x00B0, 0x00B0, 0x009C, 0x00B4, 0x00B4, 0x00A0, 0x00B8, 0x00B8, 0x00A4, 0x00BC, 0x00BC
-};
+	0x0090, 0x00A8, 0x00A8, 0x0094, 0x00AC, 0x00AC, 0x0098, 0x00B0, 0x00B0, 0x009C, 0x00B4, 0x00B4, 0x00A0, 0x00B8, 0x00B8, 0x00A4, 0x00BC, 0x00BC};
 
-uint16_t g_KelfKeysIndex[4] = { 0x110, 0x110, 0xC4, 0x15C };
+uint16_t g_KelfKeysIndex[4] = {0x110, 0x110, 0xC4, 0x15C};
 
 uint16_t g_cardKeyStore[48] = {
 	/* SHA256: 04bcc6b13827829fb5cc8dbd86420d30f69a2bfd3b7719398b341e15368bd365 */
 };
 
-uint8_t g_KeyStoreKey[16] = { /* SHA256: 04bcc6b13827829fb5cc8dbd86420d30f69a2bfd3b7719398b341e15368bd365 */ };
+uint8_t g_KeyStoreKey[16] = {/* SHA256: 04bcc6b13827829fb5cc8dbd86420d30f69a2bfd3b7719398b341e15368bd365 */};
 
-uint8_t MG_IV_NULL[8] = { 0 };
+uint8_t MG_IV_NULL[8] = {0};
 
-u8 cdvdParamLength[16] = { 0, 0, 0, 0, 0, 4, 11, 11, 11, 1, 255, 255, 7, 2, 11, 1 };
+u8 cdvdParamLength[16] = {0, 0, 0, 0, 0, 4, 11, 11, 11, 1, 255, 255, 7, 2, 11, 1};
 
 static __fi void SetSCMDResultSize(u8 size)
 {
@@ -309,8 +308,8 @@ static void cdvdNVM(u8* buffer, int offset, size_t bytes, bool read)
 			std::memcmp(LanguageParams, zero, sizeof(LanguageParams)) == 0 ||
 			(BiosVersion >= 0x200 &&
 				(std::fseek(fp.get(), *(s32*)(((u8*)nvmLayout) + offsetof(NVMLayout, regparams)), SEEK_SET) != 0 ||
-				std::fread(RegParams, 12, 1, fp.get()) != 1 ||
-				std::memcmp(RegParams, zero, sizeof(RegParams)) == 0)))
+					std::fread(RegParams, 12, 1, fp.get()) != 1 ||
+					std::memcmp(RegParams, zero, sizeof(RegParams)) == 0)))
 		{
 			Console.Warning("Language Parameters missing, filling in defaults");
 
@@ -324,13 +323,16 @@ static void cdvdNVM(u8* buffer, int offset, size_t bytes, bool read)
 	{
 		u8 ILinkID_Data[8] = {0x00, 0xAC, 0xFF, 0xFF, 0xFF, 0xFF, 0xB9, 0x86};
 
-		if (FileSystem::FSize64(fpIlink.get()) == 0x400) {
+		if (FileSystem::FSize64(fpIlink.get()) == 0x400)
+		{
 			// NVM dump given for ILINK ID
 			// MAME ROMs will only have the NVM dump available so this is required for compatibility.
 			std::fseek(fpIlink.get(), 0x1e0, SEEK_SET);
 			std::fread(ILinkID_Data, 1, 8, fpIlink.get());
 			Console.WriteLn("ILINK ID MAME type");
-		} else if (FileSystem::FSize64(fpIlink.get()) == 8) {
+		}
+		else if (FileSystem::FSize64(fpIlink.get()) == 8)
+		{
 			std::fread(ILinkID_Data, 1, 8, fpIlink.get());
 			Console.WriteLn("ILINK ID OLD type");
 		}
@@ -691,10 +693,10 @@ void cdvdReadKey(u8 arg0, u16 arg1, u32 arg2, u8* key)
 	switch (arg2)
 	{
 		case 75:
-			key[10] = 0x10;   // DNAS_ID[0]
-			key[11] = 0x11;   // DNAS_ID[1]
-			key[12] = 0x12;   // DNAS_ID[2]
-			key[13] = 0x13;   // DNAS_ID[3]
+			key[10] = 0x10; // DNAS_ID[0]
+			key[11] = 0x11; // DNAS_ID[1]
+			key[12] = 0x12; // DNAS_ID[2]
+			key[13] = 0x13; // DNAS_ID[3]
 			key[14] = key_14; // DNAS_ID[4]
 			key[15] = 0x05;
 			break;
@@ -709,8 +711,8 @@ void cdvdReadKey(u8 arg0, u16 arg1, u32 arg2, u8* key)
 			{
 				key[0] = (cdvdOffset >> 24) & 0xff;
 				key[1] = (cdvdOffset >> 16) & 0xff;
-				key[2] = (cdvdOffset >>  8) & 0xff;
-				key[3] = (cdvdOffset >>  0) & 0xff;
+				key[2] = (cdvdOffset >> 8) & 0xff;
+				key[3] = (cdvdOffset >> 0) & 0xff;
 			}
 			else
 			{
@@ -963,7 +965,7 @@ static uint cdvdBlockReadTime(CDVD_MODE_TYPE mode)
 
 void readKeyStore(int idx_set)
 {
-	uint16_t *ks = (uint16_t *) &g_keyStore;
+	uint16_t* ks = (uint16_t*)&g_keyStore;
 
 	uint32_t keyOffset = 0;
 	for (int i = 0; i < 18; ++i)
@@ -971,7 +973,7 @@ void readKeyStore(int idx_set)
 		uint16_t keyIdx = g_MemoryCardKeyIndexes[18 * idx_set + i];
 		if (keyIdx >= 0x200)
 		{
-			if ( keyIdx == 0xFFFF )
+			if (keyIdx == 0xFFFF)
 			{
 				ks[keyOffset++] = 0;
 				ks[keyOffset++] = 0;
@@ -994,7 +996,6 @@ void readKeyStore(int idx_set)
 			ks[keyOffset++] = ks_data;
 			ks[keyOffset++] = ks_data;
 			ks[keyOffset++] = ks_data;
-
 		}
 	}
 
@@ -1014,45 +1015,46 @@ void readKeyStore(int idx_set)
 	ks[keyOffset++] = ks_data;
 }
 
-static void desEncrypt(void *key, void *data)
+static void desEncrypt(void* key, void* data)
 {
 	DesContext dc;
-	desInit(&dc, (uint8_t *) key, 8);
-	desEncryptBlock(&dc, (uint8_t *) data, (uint8_t *) data);
+	desInit(&dc, (uint8_t*)key, 8);
+	desEncryptBlock(&dc, (uint8_t*)data, (uint8_t*)data);
 }
 
-static void desDecrypt(void *key, void *data)
+static void desDecrypt(void* key, void* data)
 {
 	DesContext dc;
-	desInit(&dc, (uint8_t *) key, 8);
-	desDecryptBlock(&dc, (uint8_t *) data, (uint8_t *) data);
+	desInit(&dc, (uint8_t*)key, 8);
+	desDecryptBlock(&dc, (uint8_t*)data, (uint8_t*)data);
 }
 
-static void doubleDesEncrypt(void *key, void *data)
+static void doubleDesEncrypt(void* key, void* data)
 {
 	desEncrypt(key, data);
-	desDecrypt(&((uint8_t *) key)[8], data);
+	desDecrypt(&((uint8_t*)key)[8], data);
 	desEncrypt(key, data);
 }
 
-static void doubleDesDecrypt(void *key, void *data)
+static void doubleDesDecrypt(void* key, void* data)
 {
 	desDecrypt(key, data);
-	desEncrypt(&((uint8_t *) key)[8], data);
+	desEncrypt(&((uint8_t*)key)[8], data);
 	desDecrypt(key, data);
 }
 
 static void xor_bit(const void* a, const void* b, void* Result, size_t Length)
 {
 	size_t i;
-	for (i = 0; i < Length; i++) {
+	for (i = 0; i < Length; i++)
+	{
 		((uint8_t*)Result)[i] = ((uint8_t*)a)[i] ^ ((uint8_t*)b)[i];
 	}
 }
 
 void readAndDecryptKeyStore(int idx_set)
 {
-	uint8_t *ks = (uint8_t *) &g_keyStore;
+	uint8_t* ks = (uint8_t*)&g_keyStore;
 
 	readKeyStore(idx_set);
 	for (int i = 0; i < 38; ++i)
@@ -1140,7 +1142,7 @@ void cdvdReset()
 	{
 		char filename[1024];
 		snprintf(filename, sizeof(filename), "%s/%s", EmuFolders::Bios.c_str(), "eks.bin");
-		FILE *f = fopen(filename, "rb");
+		FILE* f = fopen(filename, "rb");
 		if (f)
 		{
 			fread(g_EncryptedKeyStore, 1, sizeof(g_EncryptedKeyStore), f);
@@ -1151,7 +1153,7 @@ void cdvdReset()
 	{
 		char filename[1024];
 		snprintf(filename, sizeof(filename), "%s/%s", EmuFolders::Bios.c_str(), "cks.bin");
-		FILE *f = fopen(filename, "rb");
+		FILE* f = fopen(filename, "rb");
 		if (f)
 		{
 			fread(g_cardKeyStore, 1, sizeof(g_cardKeyStore), f);
@@ -1392,7 +1394,7 @@ __fi void cdvdActionInterrupt()
 			cdvdUpdateStatus(CDVD_STATUS_PAUSE);
 			break;
 	}
-	
+
 	if(cdvd.Action != cdvdAction_Seek)
 		cdvd.Action = cdvdAction_None;
 	cdvdSetIrq();
@@ -2588,7 +2590,7 @@ MECHA_RESULT verifyCardChallenge()
 
 static MECHA_RESULT DecryptKelfHeader()
 {
-	KELFHeader *header = (KELFHeader *) cdvd.data_buffer;
+	KELFHeader* header = (KELFHeader*)cdvd.data_buffer;
 	uint32_t headerSize = sizeof(KELFHeader) + sizeof(ConsoleBan) * header->BanCount;
 
 	if (header->Flags & 1)
@@ -2632,7 +2634,7 @@ static MECHA_RESULT DecryptKelfHeader()
 	uint8_t iLinkID[8];
 	cdvdReadILinkID(iLinkID);
 
-	ConsoleBan *bans = (ConsoleBan *) &cdvd.data_buffer[sizeof(KELFHeader)];
+	ConsoleBan* bans = (ConsoleBan*)&cdvd.data_buffer[sizeof(KELFHeader)];
 	for (int i = 0; i < header->BanCount; ++i)
 	{
 		if (memcmp(bans[i].iLinkID, iLinkID, 8) == 0)
@@ -2686,7 +2688,7 @@ static MECHA_RESULT DecryptKelfHeader()
 		doubleDesDecrypt(KEK, &cdvd.Kc[8]);
 	}
 
-	cdvd.bitTablePtr = (BitTable *) &cdvd.data_buffer[offset];
+	cdvd.bitTablePtr = (BitTable*)&cdvd.data_buffer[offset];
 
 	uint8_t BitTableEvenCiphertext[8];
 	memcpy(BitTableEvenCiphertext, cdvd.bitTablePtr, 8);
@@ -2698,7 +2700,7 @@ static MECHA_RESULT DecryptKelfHeader()
 	int signedBitBlocks = 0;
 	for (int i = 0; cdvd.bitTablePtr->BlockCount > i; ++i)
 	{
-		BitBlock *currentBitBlock = &cdvd.bitTablePtr->Blocks[i];
+		BitBlock* currentBitBlock = &cdvd.bitTablePtr->Blocks[i];
 
 		uint8_t BitTableOddCiphertext[8];
 		memcpy(BitTableOddCiphertext, currentBitBlock, 8);
@@ -2745,7 +2747,7 @@ static MECHA_RESULT DecryptKelfHeader()
 		xor_bit(&cdvd.Kc[8], BitTableSignature, BitTableSignature, 8);
 
 	for (int i = 0; i < cdvd.bitTablePtr->BlockCount * 2 + 1; i++)
-		xor_bit(&((uint8_t*) cdvd.bitTablePtr)[i * 8], BitTableSignature, BitTableSignature, 8);
+		xor_bit(&((uint8_t*)cdvd.bitTablePtr)[i * 8], BitTableSignature, BitTableSignature, 8);
 
 	uint8_t SignatureMasterHashKey[16];
 	memcpy(SignatureMasterHashKey, g_keyStore.SignatureMasterKey, 8);
@@ -2834,7 +2836,7 @@ static MECHA_RESULT DecryptKelfHeader()
 
 static MECHA_RESULT DecryptKelfContent()
 {
-	uint8_t *buffer_ptr = cdvd.data_buffer;
+	uint8_t* buffer_ptr = cdvd.data_buffer;
 	if (!cdvd.DoneBlocks)
 	{
 		memcpy(cdvd.ContentLastCiphertext, g_keyStore.ContentIV, 8);
@@ -2955,7 +2957,7 @@ static MECHA_RESULT DecryptKelfContent()
 
 static void executeMechaHandler()
 {
-	switch(cdvd.mecha_state)
+	switch (cdvd.mecha_state)
 	{
 		case MECHA_STATE_CARD_NONCE_SET:
 			cdvd.mecha_result = generateCardChallenge();
@@ -3554,8 +3556,8 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 
 				if (cdvd.SCMDParamC &&
 					(cdvd.mecha_state == MECHA_STATE_KELF_HEADER_PARAMS_SET ||
-					cdvd.mecha_state == MECHA_STATE_DATA_IN_LENGTH_SET ||
-					cdvd.mecha_state == MECHA_STATE_CRYPTO_DATA_IN_SIZE_SET) &&
+						cdvd.mecha_state == MECHA_STATE_DATA_IN_LENGTH_SET ||
+						cdvd.mecha_state == MECHA_STATE_CRYPTO_DATA_IN_SIZE_SET) &&
 					cdvd.data_buffer_offset + cdvd.SCMDParamC <= 0x800)
 				{
 					memcpy(&cdvd.data_buffer[cdvd.data_buffer_offset], cdvd.SCMDParam, cdvd.SCMDParamC);
@@ -3582,7 +3584,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 								cdvd.mecha_state = MECHA_STATE_CRYPTO_DATA_RECVED;
 								executeMechaHandler();
 							}
-						break;
+							break;
 					}
 					cdvd.SCMDResult[0] = 0;
 				}
@@ -3592,8 +3594,8 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				SetSCMDResultSize(1);
 				if (cdvd.SCMDParamC == 0 &&
 					(cdvd.mecha_state == MECHA_STATE_BIT_LENGTH_SENT ||
-					cdvd.mecha_state == MECHA_STATE_DATA_OUT_LENGTH_SET ||
-					cdvd.mecha_state == MECHA_STATE_CRYPTO_DATA_OUT_SIZE_SET))
+						cdvd.mecha_state == MECHA_STATE_DATA_OUT_LENGTH_SET ||
+						cdvd.mecha_state == MECHA_STATE_CRYPTO_DATA_OUT_SIZE_SET))
 				{
 					uint16_t len = cdvd.DataSize - cdvd.data_out_offset;
 					if (len > 0x10)
@@ -3728,10 +3730,10 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				{
 					SetSCMDResultSize(3); //in:0
 					cdvd.SCMDResult[0] = 0;
-					*(uint16_t *) &cdvd.SCMDResult[1] = cdvd.bit_length;
+					*(uint16_t*)&cdvd.SCMDResult[1] = cdvd.bit_length;
 					cdvd.DataSize = cdvd.bit_length;
 					cdvd.data_out_offset = 0;
-					cdvd.data_out_ptr = (uint8_t *) cdvd.bitTablePtr;
+					cdvd.data_out_ptr = (uint8_t*)cdvd.bitTablePtr;
 					cdvd.mecha_state = MECHA_STATE_BIT_LENGTH_SENT;
 				}
 				else
@@ -3748,7 +3750,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				cdvd.SCMDResult[0] = 0x80;
 				if (cdvd.mecha_state == MECHA_STATE_KELF_CONTENT_DECRYPT_IN_PROGRESS && cdvd.SCMDParamC == 2)
 				{
-					cdvd.DataSize = *(uint16_t *) cdvd.SCMDParam;
+					cdvd.DataSize = *(uint16_t*)cdvd.SCMDParam;
 					uint16_t len = cdvd.bitBlocks[cdvd.currentBlockIdx].Size - cdvd.DoneBlocks;
 					if (len > 0x800)
 						len = 0x800;

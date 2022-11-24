@@ -217,7 +217,7 @@ namespace usb_python2
 			TCHAR tmp[256];
 			for (size_t mapIdx = 0; mapIdx < mapVector.size(); mapIdx++)
 			{
-				for (auto &bindIt : mapVector[mapIdx].mappings)
+				for (auto& bindIt : mapVector[mapIdx].mappings)
 				{
 					lvItem.iItem = ListView_GetItemCount(lv);
 					lvItem.pszText = buttonLabelList[bindIt.keybindId];
@@ -688,5 +688,5 @@ namespace usb_python2
 			}
 			return FALSE;
 		}
-	} // namespace noop
+	} // namespace raw
 } // namespace usb_python2

@@ -62,7 +62,8 @@ namespace usb_python2
 				{
 					Console.WriteLn("Patching write @ %08x...", i);
 
-					if (i != mTargetIgnoreAddr) {
+					if (i != mTargetIgnoreAddr)
+					{
 						// Patch write
 						IniPatch iPatch = {0};
 						iPatch.placetopatch = PPT_CONTINUOUSLY;

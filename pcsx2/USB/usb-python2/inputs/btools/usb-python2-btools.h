@@ -87,6 +87,6 @@ namespace usb_python2
 			typedef uint32_t(WINAPI ddr_io_read_pad_type)(void);
 			ddr_io_read_pad_type* m_ddr_io_read_pad = nullptr;
 		};
-	} // namespace passthrough
+	} // namespace btools
 } // namespace usb_python2
 #endif

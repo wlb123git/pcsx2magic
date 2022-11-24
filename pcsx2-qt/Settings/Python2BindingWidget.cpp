@@ -151,8 +151,10 @@ Python2BindingWidget::Python2BindingWidget(QWidget* parent, ControllerSettingsDi
 		uint uniqueId = selectedItem->data(Qt::UserRole).toUInt();
 		auto val = static_cast<double>(value) / static_cast<double>(m_ui.Deadzone->maximum());
 
-		for (auto &bind : Python2QtInputManager::GetCurrentMappings()) {
-			if (bind.uniqueId == uniqueId) {
+		for (auto& bind : Python2QtInputManager::GetCurrentMappings())
+		{
+			if (bind.uniqueId == uniqueId)
+			{
 				bind.analogDeadzone = val;
 			}
 		}
@@ -160,8 +162,7 @@ Python2BindingWidget::Python2BindingWidget(QWidget* parent, ControllerSettingsDi
 		saveAndRefresh();
 
 		m_ui.keybindListAnalogs->setCurrentItem(
-			m_ui.keybindListAnalogs->item(currentRow, 0)
-		);
+			m_ui.keybindListAnalogs->item(currentRow, 0));
 	});
 	connect(m_ui.AxisScale, &QSlider::valueChanged, this, [this](int value) {
 		auto currentRow = m_ui.keybindListAnalogs->currentRow();
@@ -173,8 +174,10 @@ Python2BindingWidget::Python2BindingWidget(QWidget* parent, ControllerSettingsDi
 		uint uniqueId = selectedItem->data(Qt::UserRole).toUInt();
 		auto val = static_cast<double>(value) / static_cast<double>(m_ui.AxisScale->maximum());
 
-		for (auto &bind : Python2QtInputManager::GetCurrentMappings()) {
-			if (bind.uniqueId == uniqueId) {
+		for (auto& bind : Python2QtInputManager::GetCurrentMappings())
+		{
+			if (bind.uniqueId == uniqueId)
+			{
 				bind.analogSensitivity = val;
 			}
 		}
@@ -182,8 +185,7 @@ Python2BindingWidget::Python2BindingWidget(QWidget* parent, ControllerSettingsDi
 		saveAndRefresh();
 
 		m_ui.keybindListAnalogs->setCurrentItem(
-			m_ui.keybindListAnalogs->item(currentRow, 0)
-		);
+			m_ui.keybindListAnalogs->item(currentRow, 0));
 	});
 
 	for (auto system_entry : s_python2_system_info)
@@ -244,8 +246,10 @@ Python2BindingWidget::Python2BindingWidget(QWidget* parent, ControllerSettingsDi
 		uint uniqueId = selectedItem->data(Qt::UserRole).toUInt();
 		auto val = static_cast<double>(value) / static_cast<double>(m_ui.MotorScale->maximum());
 
-		for (auto &bind : Python2QtInputManager::GetCurrentMappings()) {
-			if (bind.uniqueId == uniqueId) {
+		for (auto& bind : Python2QtInputManager::GetCurrentMappings())
+		{
+			if (bind.uniqueId == uniqueId)
+			{
 				bind.motorScale = val;
 			}
 		}
@@ -253,8 +257,7 @@ Python2BindingWidget::Python2BindingWidget(QWidget* parent, ControllerSettingsDi
 		saveAndRefresh();
 
 		m_ui.keybindListMotors->setCurrentItem(
-			m_ui.keybindListMotors->item(currentRow, 0)
-		);
+			m_ui.keybindListMotors->item(currentRow, 0));
 	});
 
 	for (auto system_entry : s_python2_system_info)
@@ -347,7 +350,8 @@ void Python2BindingWidget::onBindKeyMotorClicked()
 		motorScale = static_cast<float>(widget->value()) / static_cast<float>(widget->maximum());
 	}
 
-	if (Python2QtInputManager::AddNewBinding(full_key.toStdString(), new_binding, 0, 0, motorScale)) {
+	if (Python2QtInputManager::AddNewBinding(full_key.toStdString(), new_binding, 0, 0, motorScale))
+	{
 		saveAndRefresh();
 	}
 }
@@ -394,7 +398,7 @@ void Python2BindingWidget::refreshInputBindingList()
 	m_ui.keybindList->horizontalHeader()->setStretchLastSection(true);
 	m_ui.keybindList->setRowCount(0);
 
-	for (auto &entry : Python2QtInputManager::GetCurrentMappings())
+	for (auto& entry : Python2QtInputManager::GetCurrentMappings())
 	{
 		if (entry.input_type != PAD::ControllerBindingType::Button)
 			continue;
@@ -723,7 +727,8 @@ void Python2BindingWidget::setNewInputBinding()
 		full_key = m_ui.inputList->currentItem()->data(Qt::UserRole).toString().toStdString();
 	}
 
-	if (Python2QtInputManager::AddNewBinding(full_key, new_binding, analogDeadzone, analogSensitivity, 0)) {
+	if (Python2QtInputManager::AddNewBinding(full_key, new_binding, analogDeadzone, analogSensitivity, 0))
+	{
 		saveAndRefresh();
 	}
 }
@@ -743,26 +748,23 @@ void Python2BindingWidget::saveMapping()
 		if (entry.input_type == PAD::ControllerBindingType::Button)
 		{
 			si->AddToStringList(
-                section.c_str(),
-                entry.keybind.c_str(),
-                StringUtil::StdStringFromFormat("%s|%d", entry.inputKey.c_str(), entry.isOneshot).c_str()
-            );
+				section.c_str(),
+				entry.keybind.c_str(),
+				StringUtil::StdStringFromFormat("%s|%d", entry.inputKey.c_str(), entry.isOneshot).c_str());
 		}
 		else if (entry.input_type == PAD::ControllerBindingType::Axis || entry.input_type == PAD::ControllerBindingType::HalfAxis)
 		{
 			si->AddToStringList(
-                section.c_str(),
-                entry.keybind.c_str(),
-                StringUtil::StdStringFromFormat("%s|%lf|%lf", entry.inputKey.c_str(), entry.analogDeadzone, entry.analogSensitivity).c_str()
-            );
+				section.c_str(),
+				entry.keybind.c_str(),
+				StringUtil::StdStringFromFormat("%s|%lf|%lf", entry.inputKey.c_str(), entry.analogDeadzone, entry.analogSensitivity).c_str());
 		}
 		else if (entry.input_type == PAD::ControllerBindingType::Motor)
 		{
 			si->AddToStringList(
-                section.c_str(),
-                entry.keybind.c_str(),
-                StringUtil::StdStringFromFormat("%s|%lf", entry.inputKey.c_str(), entry.motorScale).c_str()
-            );
+				section.c_str(),
+				entry.keybind.c_str(),
+				StringUtil::StdStringFromFormat("%s|%lf", entry.inputKey.c_str(), entry.motorScale).c_str());
 		}
 	}
 

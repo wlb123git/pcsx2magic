@@ -308,7 +308,7 @@ namespace usb_python2
 		}
 	}
 
-	uint8_t calc_crc8(uint8_t *data, const uint8_t data_size, const uint8_t crc_init)
+	uint8_t calc_crc8(uint8_t* data, const uint8_t data_size, const uint8_t crc_init)
 	{
 		uint8_t crc = crc_init;
 
@@ -319,14 +319,15 @@ namespace usb_python2
 			{
 				const uint8_t mix = (crc ^ inByte) & 0x01;
 				crc >>= 1;
-				if (mix != 0) crc ^= 0x8C;
+				if (mix != 0)
+					crc ^= 0x8C;
 				inByte >>= 1;
 			}
 		}
 		return crc;
 	}
 
-	bool read_dongle_data(FILE *infile, uint8_t *output)
+	bool read_dongle_data(FILE* infile, uint8_t* output)
 	{
 		bool is_valid = false;
 		uint8_t temp[40] = {};
@@ -339,22 +340,28 @@ namespace usb_python2
 		// configurations and then reorder file data if required.
 		// MAME format is 0x20 bytes for payload followed by 0x08 for serial.
 		// The format used in other dumps for Python 2 games is the reverse of that.
-		if (((~calc_crc8(temp, 0x1f, 0xff)) & 0xff) == temp[0x1f] && calc_crc8(temp + 0x20, 7, 0) == temp[0x27]) {
+		if (((~calc_crc8(temp, 0x1f, 0xff)) & 0xff) == temp[0x1f] && calc_crc8(temp + 0x20, 7, 0) == temp[0x27])
+		{
 			memcpy(payload, temp, 0x20);
 			memcpy(serial, temp + 0x20, 8);
 			Console.WriteLn("Dongle type MAME");
 			is_valid = true;
-		} else if (calc_crc8(temp, 7, 0) == temp[7] && ((~calc_crc8(temp + 8, 0x1f, 0xff)) & 0xff) == temp[0x27]) {
+		}
+		else if (calc_crc8(temp, 7, 0) == temp[7] && ((~calc_crc8(temp + 8, 0x1f, 0xff)) & 0xff) == temp[0x27])
+		{
 			memcpy(serial, temp, 8);
 			memcpy(payload, temp + 8, 0x20);
 			Console.WriteLn("Dongle type OLD");
 			is_valid = true;
 		}
 
-		if (is_valid) {
+		if (is_valid)
+		{
 			memcpy(output, serial, 8);
 			memcpy(output + 8, payload, 32);
-		} else {
+		}
+		else
+		{
 			memset(output, 0, 40);
 			Console.Error("Dongle BAD: invalid CRC values");
 		}
@@ -596,7 +603,8 @@ namespace usb_python2
 			}
 		}
 
-		if (s->f.stageState[offset].state != GN845PWBB_STAGE_INIT_DONE) {
+		if (s->f.stageState[offset].state != GN845PWBB_STAGE_INIT_DONE)
+		{
 			s->f.jammaIoStatus = s->f.jammaIoStatus & 0xff0000ff;
 			s->f.jammaIoStatus |= s->f.stageMask[0] << 8;
 			s->f.jammaIoStatus |= s->f.stageMask[1] << 16;
@@ -1296,7 +1304,8 @@ namespace usb_python2
 #endif
 		EmuConfig.Gamefixes.Set(Fix_OPHFlag, true);
 
-		if (s) {
+		if (s)
+		{
 			// Initialize all variables to try and keep a consistent state
 			if (s->devices[0] != nullptr)
 				s->devices[0].reset();
@@ -1327,7 +1336,8 @@ namespace usb_python2
 			s->f.knobs[0] = s->f.knobs[1] = 0;
 			s->f.oldLightCabinet = 0;
 
-			for (int i = 0; i < 2; i++) {
+			for (int i = 0; i < 2; i++)
+			{
 				s->f.stageMask[i] = 0xff;
 				s->f.stageState[i].DO = 0;
 				s->f.stageState[i].clk = 0;

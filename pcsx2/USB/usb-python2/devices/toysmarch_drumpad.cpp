@@ -22,8 +22,7 @@ namespace usb_python2
 			uint8_t(p2dev->GetKeyStateOneShot(P2TEXT("ToysMarchP2Cymbal")) * 128),
 			uint8_t(p2dev->GetKeyStateOneShot(P2TEXT("ToysMarchP2DrumL")) * 128),
 			uint8_t(p2dev->GetKeyStateOneShot(P2TEXT("ToysMarchP2DrumR")) * 128),
-			0
-		};
+			0};
 		stateIdx = (stateIdx + 1) % 8;
 
 		buf.push_back(0xaa);

@@ -146,7 +146,8 @@ void SettingsDialog::setupUi(const GameList::Entry* game)
 			tr("<strong>Folder Settings</strong><hr>These options control where PCSX2 will save runtime data files."));
 	}
 
-	if (isPerGameSettings() && game->type == GameList::EntryType::Python2) {
+	if (isPerGameSettings() && game->type == GameList::EntryType::Python2)
+	{
 		addWidget(m_python2_settings = new Python2SettingsWidget(game, this, m_ui.settingsContainer), tr("Python 2"), QStringLiteral("dashboard-line"),
 			tr("<strong>Python 2 Settings</strong><hr>These options control the settings specific to Python 2 games."));
 	}
