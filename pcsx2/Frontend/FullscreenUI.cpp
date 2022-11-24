@@ -2633,8 +2633,11 @@ void FullscreenUI::DrawEmulationSettingsPage()
 		"EnableWideScreenPatches", false);
 	DrawToggleSetting(bsi, "Enable No-Interlacing Patches", "Enables loading no-interlacing patches from pnach files.", "EmuCore",
 		"EnableNoInterlacingPatches", false);
-	DrawToggleSetting(bsi, "Enable Per-Game Settings", "Enables loading ini overlays from gamesettings, or custom settings per-game.",
-		"EmuCore", "EnablePerGameSettings", true);
+	if (DrawToggleSetting(bsi, "Enable Per-Game Settings", "Enables loading ini overlays from gamesettings, or custom settings per-game.",
+			"EmuCore", "EnablePerGameSettings", IsEditingGameSettings(bsi)))
+	{
+		Host::RunOnCPUThread(&VMManager::ReloadGameSettings);
+	}
 	DrawToggleSetting(bsi, "Enable Host Filesystem", "Enables access to files from the host: namespace in the virtual machine.", "EmuCore",
 		"HostFs", false);
 	DrawToggleSetting(bsi, "Warn About Unsafe Settings", "Displays warnings when settings are enabled which may break games.", "EmuCore",
@@ -2790,9 +2793,10 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 		"11", //GSRendererType::Null
 	};
 	static constexpr const char* s_vsync_values[] = {"Off", "On", "Adaptive"};
+	static constexpr const char* s_bilinear_present_options[] = {"Off", "Bilinear (Smooth)", "Bilinear (Sharp)"};
 	static constexpr const char* s_deinterlacing_options[] = {"Automatic (Default)", "None", "Weave (Top Field First, Sawtooth)",
 		"Weave (Bottom Field First, Sawtooth)", "Bob (Top Field First)", "Bob (Bottom Field First)", "Blend (Top Field First, Half FPS)",
-		"Blend (Bottom Field First, Half FPS)", "Adaptive (Top Field First", "Adaptive (Bottom Field First)"};
+		"Blend (Bottom Field First, Half FPS)", "Adaptive (Top Field First)", "Adaptive (Bottom Field First)"};
 	static const char* s_resolution_options[] = {
 		"Native (PS2)",
 		"1.25x Native",
@@ -2874,15 +2878,13 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 		100, 10, 300, "%d%%");
 	DrawIntRectSetting(bsi, "Crop", "Crops the image, while respecting aspect ratio.", "EmuCore/GS", "CropLeft", 0, "CropTop", 0,
 		"CropRight", 0, "CropBottom", 0, 0, 720, "%dpx");
-	DrawToggleSetting(
-		bsi, "Bilinear Upscaling", "Smooths out the image when upscaling the console to the screen.", "EmuCore/GS", "linear_present", true);
+	DrawIntListSetting(bsi, "Bilinear Upscaling",
+		"Smooths out the image when upscaling the console to the screen.", "EmuCore/GS", "linear_present_mode",
+		static_cast<int>(GSPostBilinearMode::BilinearSharp), s_bilinear_present_options, std::size(s_bilinear_present_options));
 	DrawToggleSetting(bsi, "Integer Upscaling",
 		"Adds padding to the display area to ensure that the ratio between pixels on the host to pixels in the console is an integer "
 		"number. May result in a sharper image in some 2D games.",
 		"EmuCore/GS", "IntegerScaling", false);
-	DrawToggleSetting(bsi, "Internal Resolution Screenshots",
-		"Save screenshots at the full render resolution, rather than display resolution.", "EmuCore/GS", "InternalResolutionScreenshots",
-		false);
 	DrawToggleSetting(bsi, "Screen Offsets", "Enables PCRTC Offsets which position the screen as the game requests.", "EmuCore/GS",
 		"pcrtc_offsets", false);
 	DrawToggleSetting(bsi, "Show Overscan",
@@ -3029,8 +3031,21 @@ void FullscreenUI::DrawGraphicsSettingsPage()
 
 	MenuHeading("Post-Processing");
 	{
-		const bool shadeboost_active = GetEffectiveBoolSetting(bsi, "EmuCore/GS", "ShadeBoost", false);
+		static constexpr const char* s_cas_options[] = {
+			"Disabled", "Sharpen Only (Internal Resolution)", "Sharpen and Resize (Display Resolution)"};
+		const bool cas_active = (GetEffectiveIntSetting(bsi, "EmuCore/GS", "CASMode", 0) != static_cast<int>(GSCASMode::Disabled));
+
 		DrawToggleSetting(bsi, "FXAA", "Enables FXAA post-processing shader.", "EmuCore/GS", "fxaa", false);
+		DrawIntListSetting(bsi, "Contrast Adaptive Sharpening", "Enables FidelityFX Contrast Adaptive Sharpening.", "EmuCore/GS", "CASMode",
+			static_cast<int>(GSCASMode::Disabled), s_cas_options, std::size(s_cas_options));
+		DrawIntSpinBoxSetting(bsi, "CAS Sharpness", "Determines the intensity the sharpening effect in CAS post-processing.", "EmuCore/GS",
+			"CASSharpness", 50, 0, 100, 1, "%d%%", cas_active);
+	}
+
+	MenuHeading("Filters");
+	{
+		const bool shadeboost_active = GetEffectiveBoolSetting(bsi, "EmuCore/GS", "ShadeBoost", false);
+
 		DrawToggleSetting(bsi, "Shade Boost", "Enables brightness/contrast/saturation adjustment.", "EmuCore/GS", "ShadeBoost", false);
 		DrawIntRangeSetting(bsi, "Shade Boost Brightness", "Adjusts brightness. 50 is normal.", "EmuCore/GS", "ShadeBoost_Brightness", 50,
 			1, 100, "%d", shadeboost_active);
@@ -3844,8 +3859,7 @@ void FullscreenUI::DrawGameFixesSettingsPage()
 	DrawToggleSetting(bsi, "EE Timing Hack",
 		"Known to affect following games: Digital Devil Saga (Fixes FMV and crashes), SSX (Fixes bad graphics and crashes).",
 		"EmuCore/Gamefixes", "EETimingHack", false);
-	DrawToggleSetting(bsi, "Instant DMA Hack",
-		"Known to affect following games: Fire Pro Wrestling Z (Bad ring graphics).",
+	DrawToggleSetting(bsi, "Instant DMA Hack", "Known to affect following games: Fire Pro Wrestling Z (Bad ring graphics).",
 		"EmuCore/Gamefixes", "InstantDMAHack", false);
 	DrawToggleSetting(bsi, "Handle DMAC writes when it is busy.",
 		"Known to affect following games: Mana Khemia 1 (Going \"off campus\"), Metal Saga (Intro FMV), Pilot Down Behind Enemy Lines.",
@@ -5139,12 +5153,13 @@ void FullscreenUI::HandleGameListOptions(const GameList::Entry* entry)
 		{ICON_FA_COMPACT_DISC " Default Boot", false},
 		{ICON_FA_LIGHTBULB " Fast Boot", false},
 		{ICON_FA_MAGIC " Slow Boot", false},
+		{ICON_FA_FOLDER_MINUS " Reset Play Time", false},
 		{ICON_FA_WINDOW_CLOSE " Close Menu", false},
 	};
 
 	const bool has_resume_state = VMManager::HasSaveStateInSlot(entry->serial.c_str(), entry->crc, -1);
 	OpenChoiceDialog(entry->title.c_str(), false, std::move(options),
-		[has_resume_state, entry_path = entry->path](s32 index, const std::string& title, bool checked) {
+		[has_resume_state, entry_path = entry->path, entry_serial = entry->serial](s32 index, const std::string& title, bool checked) {
 			switch (index)
 			{
 				case 0: // Open Game Properties
@@ -5164,6 +5179,9 @@ void FullscreenUI::HandleGameListOptions(const GameList::Entry* entry)
 					break;
 				case 5: // Slow Boot
 					DoStartPath(entry_path, std::nullopt, false);
+					break;
+				case 6: // Reset Play Time
+					GameList::ClearPlayedTimeForSerial(entry_serial);
 					break;
 				default:
 					break;

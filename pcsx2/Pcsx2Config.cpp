@@ -303,7 +303,7 @@ Pcsx2Config::GSOptions::GSOptions()
 	PCRTCOffsets = false;
 	PCRTCOverscan = false;
 	IntegerScaling = false;
-	LinearPresent = true;
+	LinearPresent = GSPostBilinearMode::BilinearSmooth;
 	SyncToHostRefreshRate = false;
 	UseDebugDevice = false;
 	UseBlitSwapChain = false;
@@ -381,6 +381,7 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(VsyncEnable) &&
 
 		OpEqu(InterlaceMode) &&
+		OpEqu(LinearPresent) &&
 
 		OpEqu(Zoom) &&
 		OpEqu(StretchY) &&
@@ -406,6 +407,7 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(TexturePreloading) &&
 		OpEqu(GSDumpCompression) &&
 		OpEqu(HWDownloadMode) &&
+		OpEqu(CASMode) &&
 		OpEqu(Dithering) &&
 		OpEqu(MaxAnisotropy) &&
 		OpEqu(SWExtraThreads) &&
@@ -425,6 +427,7 @@ bool Pcsx2Config::GSOptions::OptionsAreEqual(const GSOptions& right) const
 		OpEqu(OverrideTextureBarriers) &&
 		OpEqu(OverrideGeometryShaders) &&
 
+		OpEqu(CAS_Sharpness) &&
 		OpEqu(ShadeBoost_Brightness) &&
 		OpEqu(ShadeBoost_Contrast) &&
 		OpEqu(ShadeBoost_Saturation) &&
@@ -475,7 +478,6 @@ void Pcsx2Config::GSOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBool(SyncToHostRefreshRate);
 	SettingsWrapEnumEx(AspectRatio, "AspectRatio", AspectRatioNames);
 	SettingsWrapEnumEx(FMVAspectRatioSwitch, "FMVAspectRatioSwitch", FMVAspectRatioSwitchNames);
-
 	SettingsWrapEntry(Zoom);
 	SettingsWrapEntry(StretchY);
 	SettingsWrapEntryEx(Crop[0], "CropLeft");
@@ -530,7 +532,6 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingBoolEx(PCRTCOffsets, "pcrtc_offsets");
 	GSSettingBoolEx(PCRTCOverscan, "pcrtc_overscan");
 	GSSettingBool(IntegerScaling);
-	GSSettingBoolEx(LinearPresent, "linear_present");
 	GSSettingBool(UseDebugDevice);
 	GSSettingBool(UseBlitSwapChain);
 	GSSettingBoolEx(DisableShaderCache, "disable_shader_cache");
@@ -568,7 +569,9 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingBoolEx(UserHacks_TextureInsideRt, "UserHacks_TextureInsideRt");
 	GSSettingBoolEx(FXAA, "fxaa");
 	GSSettingBool(ShadeBoost);
+#ifndef PCSX2_CORE
 	GSSettingBoolEx(ShaderFX, "shaderfx");
+#endif
 	GSSettingBoolEx(DumpGSData, "dump");
 	GSSettingBoolEx(SaveRT, "save");
 	GSSettingBoolEx(SaveFrame, "savef");
@@ -583,6 +586,7 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingBool(LoadTextureReplacementsAsync);
 	GSSettingBool(PrecacheTextureReplacements);
 
+	GSSettingIntEnumEx(LinearPresent, "linear_present_mode");
 	GSSettingIntEnumEx(InterlaceMode, "deinterlace_mode");
 
 	GSSettingFloat(OsdScale);
@@ -600,6 +604,8 @@ void Pcsx2Config::GSOptions::ReloadIniSettings()
 	GSSettingIntEnumEx(TexturePreloading, "texture_preloading");
 	GSSettingIntEnumEx(GSDumpCompression, "GSDumpCompression");
 	GSSettingIntEnumEx(HWDownloadMode, "HWDownloadMode");
+	GSSettingIntEnumEx(CASMode, "CASMode");
+	GSSettingIntEx(CAS_Sharpness, "CASSharpness");
 	GSSettingIntEx(Dithering, "dithering_ps2");
 	GSSettingIntEx(MaxAnisotropy, "MaxAnisotropy");
 	GSSettingIntEx(SWExtraThreads, "extrathreads");

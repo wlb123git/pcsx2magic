@@ -446,6 +446,8 @@ GSTextureCache::Target* GSTextureCache::LookupTarget(const GIFRegTEX0& TEX0, con
 
 	Target* dst = nullptr;
 	auto& list = m_dst[type];
+	Target* old_found = nullptr;
+
 	if (!is_frame)
 	{
 		for (auto i = list.begin(); i != list.end(); ++i)
@@ -477,8 +479,11 @@ GSTextureCache::Target* GSTextureCache::LookupTarget(const GIFRegTEX0& TEX0, con
 				// If the frame is older than 30 frames (0.5 seconds) then it hasn't been updated for ages, so it's probably not a valid output frame.
 				// The rest of the checks will get better equality, so suffer less from misdetection.
 				// Kind of arbitrary but it's low enough to not break Grandia Xtreme and high enough not to break Mission Impossible Operation Surma.
-				if (t->m_age > 30)
+				if (t->m_age > 30 && !old_found)
+				{
+					old_found = t;
 					continue;
+				}
 
 				dst = t;
 				GL_CACHE("TC: Lookup Frame %dx%d, perfect hit: %d (0x%x -> 0x%x %s)", size.x, size.y, dst->m_texture->GetID(), bp, t->m_end_block, psm_str(TEX0.PSM));
@@ -497,6 +502,11 @@ GSTextureCache::Target* GSTextureCache::LookupTarget(const GIFRegTEX0& TEX0, con
 				// Make sure the target is inside the texture
 				if (t->m_TEX0.TBP0 <= bp && bp <= t->m_end_block && t->Inside(bp, TEX0.TBW, TEX0.PSM, GSVector4i(0, 0, real_w, real_h)))
 				{
+					if (old_found && t->m_age > 4)
+					{
+						continue;
+					}
+
 					dst = t;
 					GL_CACHE("TC: Lookup Frame %dx%d, inclusive hit: %d (0x%x, took 0x%x -> 0x%x %s)", size.x, size.y, t->m_texture->GetID(), bp, t->m_TEX0.TBP0, t->m_end_block, psm_str(TEX0.PSM));
 
@@ -506,6 +516,11 @@ GSTextureCache::Target* GSTextureCache::LookupTarget(const GIFRegTEX0& TEX0, con
 					break;
 				}
 			}
+		}
+
+		if (!dst && old_found)
+		{
+			dst = old_found;
 		}
 
 		// 3rd try ! Try to find a frame that doesn't contain valid data (honestly I'm not sure we need to do it)
@@ -530,7 +545,7 @@ GSTextureCache::Target* GSTextureCache::LookupTarget(const GIFRegTEX0& TEX0, con
 	{
 		GL_CACHE("TC: Lookup %s(%s) %dx%d, hit: %d (0x%x, %s)", is_frame ? "Frame" : "Target", to_string(type), size.x, size.y, dst->m_texture->GetID(), bp, psm_str(TEX0.PSM));
 
-		dst->Update();
+		dst->Update(!is_frame || old_found == dst);
 
 		const GSVector2& old_s = dst->m_texture->GetScale();
 		if (new_s != old_s)
@@ -573,7 +588,7 @@ GSTextureCache::Target* GSTextureCache::LookupTarget(const GIFRegTEX0& TEX0, con
 
 		if (dst_match)
 		{
-			dst_match->Update();
+			dst_match->Update(true);
 			calcRescale(dst_match->m_texture);
 			dst = CreateTarget(TEX0, new_size.x, new_size.y, type, clear);
 			dst->m_32_bits_fmt = dst_match->m_32_bits_fmt;
@@ -624,7 +639,7 @@ GSTextureCache::Target* GSTextureCache::LookupTarget(const GIFRegTEX0& TEX0, con
 			max_h = std::min<int>(max_h, TEX0.TBW * 64);
 
 			dst->m_dirty.push_back(GSDirtyRect(GSVector4i(0, 0, TEX0.TBW * 64, is_frame ? real_h : max_h), TEX0.PSM, TEX0.TBW));
-			dst->Update();
+			dst->Update(true);
 		}
 	}
 	if (used)
@@ -700,6 +715,43 @@ void GSTextureCache::ScaleTargetForDisplay(Target* t, const GIFRegTEX0& dispfb, 
 	GetTargetHeight(t->m_TEX0.TBP0, t->m_TEX0.TBW, t->m_TEX0.PSM, static_cast<u32>(needed_height));
 }
 
+// Expands targets where the write from the EE overlaps the edge of a render target and uses the same base pointer.
+void GSTextureCache::ExpandTarget(const GIFRegBITBLTBUF& BITBLTBUF, const GSVector4i& r)
+{
+	GIFRegTEX0 TEX0;
+	TEX0.TBP0 = BITBLTBUF.DBP;
+	TEX0.TBW = BITBLTBUF.DBW;
+	TEX0.PSM = BITBLTBUF.DPSM;
+	Target* dst = nullptr;
+	auto& list = m_dst[RenderTarget];
+
+	for (auto i = list.begin(); i != list.end(); ++i)
+	{
+		Target* t = *i;
+
+		if (TEX0.TBP0 == t->m_TEX0.TBP0 && t->Overlaps(TEX0.TBP0, TEX0.TBW, TEX0.PSM, r))
+		{
+			list.MoveFront(i.Index());
+
+			dst = t;
+			break;
+		}
+	}
+	
+	if (dst)
+	{
+		const GSVector2i rect_scaled = GSVector2i(r.z * g_gs_renderer->GetUpscaleMultiplier(), r.w * g_gs_renderer->GetUpscaleMultiplier());
+		const int upsc_width = std::max(rect_scaled.x, dst->m_texture->GetWidth());
+		const int upsc_height = std::max(rect_scaled.y, dst->m_texture->GetHeight());
+		if (dst->m_texture->GetWidth() < upsc_width || dst->m_texture->GetHeight() < upsc_height)
+		{
+			dst->ResizeTexture(upsc_width, upsc_height);
+			dst->m_dirty.push_back(GSDirtyRect(r, TEX0.PSM, TEX0.TBW));
+			GetTargetHeight(TEX0.TBP0, TEX0.TBW, TEX0.PSM, r.w);
+			dst->Update(true);
+		}
+	}
+}
 // Goal: Depth And Target at the same address is not possible. On GS it is
 // the same memory but not on the Dx/GL. Therefore a write to the Depth/Target
 // must invalidate the Target/Depth respectively
@@ -733,7 +785,7 @@ void GSTextureCache::InvalidateVideoMemType(int type, u32 bp)
 
 // Goal: invalidate data sent to the GPU when the source (GS memory) is modified
 // Called each time you want to write to the GS memory
-void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& rect, bool target)
+void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& rect, bool eewrite, bool target)
 {
 	u32 bp = off.bp();
 	u32 bw = off.bw();
@@ -898,7 +950,8 @@ void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& r
 						t->m_texture ? t->m_texture->GetID() : 0,
 						t->m_TEX0.TBP0, r.x, r.y, r.z, r.w);
 					t->m_TEX0.TBW = bw;
-					t->m_age = 0;
+					if(eewrite && t->m_age < 30)
+						t->m_age = 0;
 					t->m_dirty.push_back(GSDirtyRect(r, psm, bw));
 				}
 				else
@@ -911,6 +964,8 @@ void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& r
 					const SurfaceOffset so = ComputeSurfaceOffset(off, r, t);
 					if (so.is_valid)
 					{
+						if (eewrite && t->m_age < 30)
+							t->m_age = 0;
 						// Offset from Target to Write in Target coords.
 						t->m_dirty.push_back(GSDirtyRect(so.b2a_offset, psm, bw));
 						GL_CACHE("TC: Dirty in the middle [aggressive] of Target(%s) %d [PSM:%s BP:0x%x->0x%x BW:%u rect(%d,%d=>%d,%d)] write[PSM:%s BP:0x%x BW:%u rect(%d,%d=>%d,%d)]",
@@ -983,7 +1038,8 @@ void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& r
 								t->m_TEX0.TBP0);
 							// TODO: do not add this rect above too
 							t->m_TEX0.TBW = bw;
-							t->m_age = 0;
+							if (eewrite && t->m_age < 30)
+								t->m_age = 0;
 							t->m_dirty.push_back(GSDirtyRect(GSVector4i(r.left, r.top - y, r.right, r.bottom - y), psm, bw));
 							continue;
 						}
@@ -1010,7 +1066,8 @@ void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& r
 							t->m_texture ? t->m_texture->GetID() : 0,
 							t->m_TEX0.TBP0, t->m_end_block,
 							r.left, r.top + y, r.right, r.bottom + y, bw);
-						t->m_age = 0;
+						if (eewrite && t->m_age < 30)
+							t->m_age = 0;
 						t->m_TEX0.TBW = bw;
 						t->m_dirty.push_back(GSDirtyRect(GSVector4i(r.left, r.top + y, r.right, r.bottom + y), psm, bw));
 						continue;
@@ -1021,7 +1078,9 @@ void GSTextureCache::InvalidateVideoMem(const GSOffset& off, const GSVector4i& r
 					const SurfaceOffset so = ComputeSurfaceOffset(off, r, t);
 					if (so.is_valid)
 					{
-						t->m_age = 0;
+						if (eewrite && t->m_age < 30)
+							t->m_age = 0;
+
 						t->m_dirty.push_back(GSDirtyRect(so.b2a_offset, psm, bw));
 					}
 				}
@@ -1280,7 +1339,7 @@ bool GSTextureCache::Move(u32 SBP, u32 SBW, u32 SPSM, int sx, int sy, u32 DBP, u
 		scaled_dx, scaled_dy);
 
 	// Invalidate any sources that overlap with the target (since they're now stale).
-	InvalidateVideoMem(g_gs_renderer->m_mem.GetOffset(DBP, DBW, DPSM), GSVector4i(dx, dy, dx + w, dy + h), false);
+	InvalidateVideoMem(g_gs_renderer->m_mem.GetOffset(DBP, DBW, DPSM), GSVector4i(dx, dy, dx + w, dy + h),false, false);
 	return true;
 }
 
@@ -1713,7 +1772,7 @@ GSTextureCache::Source* GSTextureCache::CreateSource(const GIFRegTEX0& TEX0, con
 		src->m_valid_rect = dst->m_valid;
 		src->m_end_block = dst->m_end_block;
 
-		dst->Update();
+		dst->Update(true);
 
 		// do not round here!!! if edge becomes a black pixel and addressing mode is clamp => everything outside the clamped area turns into black (kh2 shadows)
 
@@ -2280,7 +2339,8 @@ bool GSTextureCache::Surface::Overlaps(u32 bp, u32 bw, u32 psm, const GSVector4i
 {
 	// Valid only for color formats.
 	const u32 end_block = GSLocalMemory::m_psm[psm].info.bn(rect.z - 1, rect.w - 1, bp, bw);
-	const bool overlap = GSTextureCache::CheckOverlap(m_TEX0.TBP0, m_end_block, bp, end_block);
+	const u32 start_block = GSLocalMemory::m_psm[psm].info.bn(rect.x, rect.y, bp, bw);
+	const bool overlap = GSTextureCache::CheckOverlap(m_TEX0.TBP0, m_end_block, start_block, end_block);
 	return overlap;
 }
 
@@ -2625,9 +2685,10 @@ GSTextureCache::Target::Target(const GIFRegTEX0& TEX0, const bool depth_supporte
 	m_dirty_alpha = GSLocalMemory::m_psm[TEX0.PSM].trbpp != 24;
 }
 
-void GSTextureCache::Target::Update()
+void GSTextureCache::Target::Update(bool reset_age)
 {
-	Surface::UpdateAge();
+	if(reset_age)
+		Surface::UpdateAge();
 
 	// FIXME: the union of the rects may also update wrong parts of the render target (but a lot faster :)
 	// GH: it must be doable
@@ -2729,7 +2790,7 @@ void GSTextureCache::Target::UpdateIfDirtyIntersects(const GSVector4i& rc)
 		// but, to keep things simple, just update the whole thing
 		GL_CACHE("TC: Update dirty rectangle [%d,%d,%d,%d] due to intersection with [%d,%d,%d,%d]",
 			dirty_rc.x, dirty_rc.y, dirty_rc.z, dirty_rc.w, rc.x, rc.y, rc.z, rc.w);
-		Update();
+		Update(true);
 		break;
 	}
 }

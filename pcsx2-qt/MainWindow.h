@@ -78,7 +78,7 @@ public:
 	static const char* DEFAULT_THEME_NAME;
 
 public:
-	explicit MainWindow(const QString& unthemed_style_name);
+	MainWindow();
 	~MainWindow();
 
 	/// Sets application theme according to settings.
@@ -231,6 +231,7 @@ private:
 	void startGameListEntry(const GameList::Entry* entry, std::optional<s32> save_slot = std::nullopt,
 		std::optional<bool> fast_boot = std::nullopt);
 	void setGameListEntryCoverImage(const GameList::Entry* entry);
+	void clearGameListEntryPlayTime(const GameList::Entry* entry);
 
 	std::optional<bool> promptForResumeState(const QString& save_state_path);
 	void loadSaveStateSlot(s32 slot);
@@ -243,8 +244,6 @@ private:
 	bool verifyPython2Configuration(const GameList::Entry* entry);
 
 	Ui::MainWindow m_ui;
-
-	QString m_unthemed_style_name;
 
 	GameListWidget* m_game_list_widget = nullptr;
 	DisplayWidget* m_display_widget = nullptr;

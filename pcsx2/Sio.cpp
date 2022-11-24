@@ -27,6 +27,7 @@
 
 #include "common/Timer.h"
 #include "Recording/InputRecording.h"
+#include "IconsFontAwesome5.h"
 
 #define SIO0LOG_ENABLE 0
 #define SIO2LOG_ENABLE 0
@@ -872,53 +873,9 @@ void SaveStateBase::sio2Freeze()
 {
 	FreezeTag("sio2");
 
-	if (IsSaving())
-	{
-		std::deque<u8>::iterator iter;
-		size_t backupSize;
-
-		// Copy fifoIn
-		if (fifoIn.size())
-		{
-			sio2.fifoInBackup = std::make_unique<u8[]>(fifoIn.size());
-			iter = fifoIn.begin();
-			backupSize = 0;
-
-			while (iter != fifoIn.end())
-			{
-				const u8 val = *iter++;
-				sio2.fifoInBackup.get()[backupSize++] = val;
-			}
-
-			sio2.fifoInBackupSize = backupSize;
-		}
-		else
-		{
-			sio2.fifoInBackupSize = 0;
-		}
-
-		// Copy fifoOut
-		if (fifoOut.size())
-		{
-			sio2.fifoOutBackup = std::make_unique<u8[]>(fifoOut.size());
-			iter = fifoOut.begin();
-			backupSize = 0;
-
-			while (iter != fifoOut.end())
-			{
-				const u8 val = *iter++;
-				sio2.fifoOutBackup.get()[backupSize++] = val;
-			}
-
-			sio2.fifoOutBackupSize = backupSize;
-		}
-		else
-		{
-			sio2.fifoOutBackupSize = 0;
-		}
-	}
-
 	Freeze(sio2);
+	FreezeDeque(fifoIn);
+	FreezeDeque(fifoOut);
 
 	// CRCs for memory cards.
 	// If the memory card hasn't changed when loading state, we can safely skip ejecting it.
@@ -946,28 +903,6 @@ void SaveStateBase::sio2Freeze()
 					ejected = true;
 					break;
 				}
-			}
-		}
-		
-		// Restore fifoIn
-		fifoIn.clear();
-
-		if (sio2.fifoInBackupSize)
-		{
-			for (size_t i = 0; i < sio2.fifoInBackupSize; i++)
-			{
-				fifoIn.push_back(sio2.fifoInBackup.get()[i]);
-			}
-		}
-
-		// Restore fifoOut
-		fifoOut.clear();
-
-		if (sio2.fifoOutBackupSize)
-		{
-			for (size_t j = 0; j < sio2.fifoOutBackupSize; j++)
-			{
-				fifoOut.push_back(sio2.fifoOutBackup.get()[j]);
 			}
 		}
 	}
@@ -1024,7 +959,7 @@ void AutoEject::Clear(size_t port, size_t slot)
 
 void AutoEject::SetAll()
 {
-	Host::AddKeyedFormattedOSDMessage("AutoEjectAllSet", 10.0f, "Force ejecting all memory cards");
+	Host::AddIconOSDMessage("AutoEjectAllSet", ICON_FA_SD_CARD, "Force ejecting all memory cards.", Host::OSD_INFO_DURATION);
 
 	for (size_t port = 0; port < SIO::PORTS; port++)
 	{

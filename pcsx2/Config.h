@@ -144,6 +144,13 @@ enum class GSInterlaceMode : u8
 	Count
 };
 
+enum class GSPostBilinearMode : u8
+{
+	Off,
+	BilinearSmooth,
+	BilinearSharp,
+};
+
 // Ordering was done to keep compatibility with older ini file.
 enum class BiFiltering : u8
 {
@@ -209,6 +216,13 @@ enum class GSHardwareDownloadMode : u8
 	NoReadbacks,
 	Unsynchronized,
 	Disabled
+};
+
+enum class GSCASMode : u8
+{
+	Disabled,
+	SharpenOnly,
+	SharpenAndResize,
 };
 
 // Template function for casting enumerations to their underlying type
@@ -477,7 +491,6 @@ struct Pcsx2Config
 					PCRTCOffsets : 1,
 					PCRTCOverscan : 1,
 					IntegerScaling : 1,
-					LinearPresent : 1,
 					SyncToHostRefreshRate : 1,
 					UseDebugDevice : 1,
 					UseBlitSwapChain : 1,
@@ -518,7 +531,9 @@ struct Pcsx2Config
 					UserHacks_TextureInsideRt : 1,
 					FXAA : 1,
 					ShadeBoost : 1,
+#ifndef PCSX2_CORE
 					ShaderFX : 1,
+#endif
 					DumpGSData : 1,
 					SaveRT : 1,
 					SaveFrame : 1,
@@ -551,6 +566,7 @@ struct Pcsx2Config
 		AspectRatioType AspectRatio{AspectRatioType::RAuto4_3_3_2};
 		FMVAspectRatioSwitchType FMVAspectRatioSwitch{FMVAspectRatioSwitchType::Off};
 		GSInterlaceMode InterlaceMode{GSInterlaceMode::Automatic};
+		GSPostBilinearMode LinearPresent{ GSPostBilinearMode::BilinearSmooth };
 
 		float Zoom{100.0f};
 		float StretchY{100.0f};
@@ -571,8 +587,9 @@ struct Pcsx2Config
 		CRCHackLevel CRCHack{CRCHackLevel::Automatic};
 		BiFiltering TextureFiltering{BiFiltering::PS2};
 		TexturePreloadingLevel TexturePreloading{TexturePreloadingLevel::Full};
-		GSDumpCompressionMethod GSDumpCompression{GSDumpCompressionMethod::LZMA};
+		GSDumpCompressionMethod GSDumpCompression{GSDumpCompressionMethod::Zstandard};
 		GSHardwareDownloadMode HWDownloadMode{GSHardwareDownloadMode::Enabled};
+		GSCASMode CASMode{GSCASMode::Disabled};
 		int Dithering{2};
 		int MaxAnisotropy{0};
 		int SWExtraThreads{2};
@@ -592,6 +609,7 @@ struct Pcsx2Config
 		int OverrideTextureBarriers{-1};
 		int OverrideGeometryShaders{-1};
 
+		int CAS_Sharpness{50};
 		int ShadeBoost_Brightness{50};
 		int ShadeBoost_Contrast{50};
 		int ShadeBoost_Saturation{50};

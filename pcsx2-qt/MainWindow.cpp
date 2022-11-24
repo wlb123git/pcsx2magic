@@ -95,6 +95,7 @@ const char* MainWindow::DEFAULT_THEME_NAME = "darkfusion";
 
 MainWindow* g_main_window = nullptr;
 static QString s_unthemed_style_name;
+static QPalette s_unthemed_palette;
 static bool s_unthemed_style_name_set;
 
 #if defined(_WIN32) || defined(__APPLE__)
@@ -111,8 +112,7 @@ static bool s_use_central_widget = false;
 static bool s_vm_valid = false;
 static bool s_vm_paused = false;
 
-MainWindow::MainWindow(const QString& unthemed_style_name)
-	: m_unthemed_style_name(unthemed_style_name)
+MainWindow::MainWindow()
 {
 	pxAssert(!g_main_window);
 	g_main_window = this;
@@ -441,7 +441,7 @@ void MainWindow::recreate()
 	close();
 	g_main_window = nullptr;
 
-	MainWindow* new_main_window = new MainWindow(m_unthemed_style_name);
+	MainWindow* new_main_window = new MainWindow();
 	new_main_window->initialize();
 	new_main_window->refreshGameList(false);
 	new_main_window->show();
@@ -488,6 +488,7 @@ void MainWindow::updateApplicationTheme()
 	{
 		s_unthemed_style_name_set = true;
 		s_unthemed_style_name = QApplication::style()->objectName();
+		s_unthemed_palette = QApplication::style()->standardPalette();
 	}
 
 	setStyleFromSettings();
@@ -500,7 +501,7 @@ void MainWindow::setStyleFromSettings()
 
 	if (theme == "fusion")
 	{
-		qApp->setPalette(QApplication::style()->standardPalette());
+		qApp->setPalette(s_unthemed_palette);
 		qApp->setStyleSheet(QString());
 		qApp->setStyle(QStyleFactory::create("Fusion"));
 	}
@@ -772,7 +773,7 @@ void MainWindow::setStyleFromSettings()
 	}
 	else
 	{
-		qApp->setPalette(QApplication::style()->standardPalette());
+		qApp->setPalette(s_unthemed_palette);
 		qApp->setStyleSheet(QString());
 		qApp->setStyle(s_unthemed_style_name);
 	}
@@ -1294,6 +1295,9 @@ void MainWindow::onGameListEntryContextMenuRequested(const QPoint& point)
 
 		connect(menu.addAction(tr("Exclude From List")), &QAction::triggered,
 			[this, entry]() { getSettingsDialog()->getGameListSettingsWidget()->addExcludedPath(entry->path); });
+
+		connect(menu.addAction(tr("Reset Play Time")), &QAction::triggered,
+			[this, entry]() { clearGameListEntryPlayTime(entry); });
 
 		menu.addSeparator();
 
@@ -2226,11 +2230,11 @@ void MainWindow::setDisplayFullscreen(const std::string& fullscreen_mode)
 	{
 		if (g_host_display->SetFullscreen(true, width, height, refresh_rate))
 		{
-			Host::AddOSDMessage("Acquired exclusive fullscreen.", 10.0f);
+			Host::AddOSDMessage("Acquired exclusive fullscreen.", Host::OSD_INFO_DURATION);
 		}
 		else
 		{
-			Host::AddOSDMessage("Failed to acquire exclusive fullscreen.", 10.0f);
+			Host::AddOSDMessage("Failed to acquire exclusive fullscreen.", Host::OSD_WARNING_DURATION);
 		}
 	}
 }
@@ -2378,6 +2382,19 @@ void MainWindow::setGameListEntryCoverImage(const GameList::Entry* entry)
 	}
 
 	m_game_list_widget->refreshGridCovers();
+}
+
+void MainWindow::clearGameListEntryPlayTime(const GameList::Entry* entry)
+{
+	if (QMessageBox::question(this, tr("Confirm Reset"),
+		tr("Are you sure you want to reset the play time for '%1'?\n\nThis action cannot be undone.")
+		.arg(QString::fromStdString(entry->title))) != QMessageBox::Yes)
+	{
+		return;
+	}
+
+	GameList::ClearPlayedTimeForSerial(entry->serial);
+	m_game_list_widget->refresh(false);
 }
 
 std::optional<bool> MainWindow::promptForResumeState(const QString& save_state_path)

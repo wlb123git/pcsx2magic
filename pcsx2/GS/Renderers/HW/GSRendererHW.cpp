@@ -214,7 +214,7 @@ void GSRendererHW::VSync(u32 field, bool registers_written)
 
 	if (m_tc->GetHashCacheMemoryUsage() > 1024 * 1024 * 1024)
 	{
-		Host::AddKeyedFormattedOSDMessage("HashCacheOverflow", 15.0f, "Hash cache has used %.2f MB of VRAM, disabling.",
+		Host::AddKeyedFormattedOSDMessage("HashCacheOverflow", Host::OSD_ERROR_DURATION, "Hash cache has used %.2f MB of VRAM, disabling.",
 			static_cast<float>(m_tc->GetHashCacheMemoryUsage()) / 1048576.0f);
 		m_tc->RemoveAll();
 		g_gs_device->PurgePool();
@@ -853,11 +853,16 @@ GSVector2i GSRendererHW::GetTargetSize(GSVector2i* unscaled_size)
 		static_cast<int>(static_cast<float>(height) * GSConfig.UpscaleMultiplier));
 }
 
-void GSRendererHW::InvalidateVideoMem(const GIFRegBITBLTBUF& BITBLTBUF, const GSVector4i& r)
+void GSRendererHW::ExpandTarget(const GIFRegBITBLTBUF& BITBLTBUF, const GSVector4i& r)
+{
+	m_tc->ExpandTarget(BITBLTBUF, r);
+}
+
+void GSRendererHW::InvalidateVideoMem(const GIFRegBITBLTBUF& BITBLTBUF, const GSVector4i& r, bool eewrite)
 {
 	// printf("[%d] InvalidateVideoMem %d,%d - %d,%d %05x (%d)\n", (int)m_perfmon.GetFrame(), r.left, r.top, r.right, r.bottom, (int)BITBLTBUF.DBP, (int)BITBLTBUF.DPSM);
 
-	m_tc->InvalidateVideoMem(m_mem.GetOffset(BITBLTBUF.DBP, BITBLTBUF.DBW, BITBLTBUF.DPSM), r);
+	m_tc->InvalidateVideoMem(m_mem.GetOffset(BITBLTBUF.DBP, BITBLTBUF.DBW, BITBLTBUF.DPSM), r, eewrite);
 }
 
 void GSRendererHW::InvalidateLocalMem(const GIFRegBITBLTBUF& BITBLTBUF, const GSVector4i& r, bool clut)
@@ -1685,6 +1690,39 @@ void GSRendererHW::Draw()
 
 	// The rectangle of the draw
 	m_r = GSVector4i(m_vt.m_min.p.xyxy(m_vt.m_max.p)).rintersect(GSVector4i(context->scissor.in));
+
+	if (!GSConfig.UserHacks_DisableSafeFeatures)
+	{
+		// Constant Direct Write without texture/test/blending (aka a GS mem clear)
+		if ((m_vt.m_primclass == GS_SPRITE_CLASS) && !PRIM->TME // Direct write
+			&& (!PRIM->ABE || m_context->ALPHA.IsOpaque()) // No transparency
+			&& (m_context->FRAME.FBMSK == 0) // no color mask
+			&& !m_context->TEST.ATE // no alpha test
+			&& (!m_context->TEST.ZTE || m_context->TEST.ZTST == ZTST_ALWAYS) // no depth test
+			&& (m_vt.m_eq.rgba == 0xFFFF) // constant color write
+			&& m_r.x == 0 && m_r.y == 0) // Likely full buffer write
+		{
+
+			if (OI_GsMemClear() && m_r.w > 1024)
+			{
+				if ((fm & fm_mask) != fm_mask)
+				{
+					m_tc->InvalidateVideoMem(context->offset.fb, m_r, false, true);
+
+					m_tc->InvalidateVideoMemType(GSTextureCache::RenderTarget, context->FRAME.Block());
+				}
+
+				if (zm != 0xffffffff)
+				{
+					m_tc->InvalidateVideoMem(context->offset.zb, m_r, false, false);
+
+					m_tc->InvalidateVideoMemType(GSTextureCache::DepthStencil, context->ZBUF.Block());
+				}
+				return;
+			}
+		}
+	}
+
 	GSVector2i unscaled_size;
 	const GSVector2i t_size = GetTargetSize(&unscaled_size);
 
@@ -1801,10 +1839,8 @@ void GSRendererHW::Draw()
 				&& !m_context->TEST.ATE // no alpha test
 				&& (!m_context->TEST.ZTE || m_context->TEST.ZTST == ZTST_ALWAYS) // no depth test
 				&& (m_vt.m_eq.rgba == 0xFFFF) // constant color write
-				&& m_r.x == 0 && m_r.y == 0) { // Likely full buffer write
-
-			OI_GsMemClear();
-
+				&& m_r.x == 0 && m_r.y == 0) // Likely full buffer write
+		{
 			OI_DoubleHalfClear(rt, ds);
 		}
 	}
@@ -1880,7 +1916,7 @@ void GSRendererHW::Draw()
 		//rt->m_valid = rt->m_valid.runion(r);
 		rt->UpdateValidity(m_r);
 
-		m_tc->InvalidateVideoMem(context->offset.fb, m_r, false);
+		m_tc->InvalidateVideoMem(context->offset.fb, m_r, false, false);
 
 		m_tc->InvalidateVideoMemType(GSTextureCache::DepthStencil, context->FRAME.Block());
 	}
@@ -1890,7 +1926,7 @@ void GSRendererHW::Draw()
 		//ds->m_valid = ds->m_valid.runion(r);
 		ds->UpdateValidity(m_r);
 
-		m_tc->InvalidateVideoMem(context->offset.zb, m_r, false);
+		m_tc->InvalidateVideoMem(context->offset.zb, m_r, false, false);
 
 		m_tc->InvalidateVideoMemType(GSTextureCache::RenderTarget, context->ZBUF.Block());
 	}
@@ -4624,7 +4660,7 @@ void GSRendererHW::OI_DoubleHalfClear(GSTextureCache::Target*& rt, GSTextureCach
 }
 
 // Note: hack is safe, but it could impact the perf a little (normally games do only a couple of clear by frame)
-void GSRendererHW::OI_GsMemClear()
+bool GSRendererHW::OI_GsMemClear()
 {
 	// Note gs mem clear must be tested before calling this function
 
@@ -4640,7 +4676,7 @@ void GSRendererHW::OI_GsMemClear()
 		// Limit the hack to a single fullscreen clear. Some games might use severals column to clear a screen
 		// but hopefully it will be enough.
 		if (r.width() <= 128 || r.height() <= 128)
-			return;
+			return false;
 
 		GL_INS("OI_GsMemClear (%d,%d => %d,%d)", r.x, r.y, r.z, r.w);
 		const int format = GSLocalMemory::m_psm[m_context->FRAME.PSM].fmt;
@@ -4690,7 +4726,9 @@ void GSRendererHW::OI_GsMemClear()
 			}
 #endif
 		}
+		return true;
 	}
+	return false;
 }
 
 bool GSRendererHW::OI_BlitFMV(GSTextureCache::Target* _rt, GSTextureCache::Source* tex, const GSVector4i& r_draw)

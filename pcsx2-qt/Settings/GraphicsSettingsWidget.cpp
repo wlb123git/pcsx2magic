@@ -77,6 +77,7 @@ static const char* s_anisotropic_filtering_values[] = {"0", "2", "4", "8", "16",
 
 static constexpr int DEFAULT_INTERLACE_MODE = 0;
 static constexpr int DEFAULT_TV_SHADER_MODE = 0;
+static constexpr int DEFAULT_CAS_SHARPNESS = 50;
 
 GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* parent)
 	: QWidget(parent)
@@ -85,12 +86,6 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* 
 	SettingsInterface* sif = dialog->getSettingsInterface();
 
 	m_ui.setupUi(this);
-
-	// start hidden, fixup in updateRendererDependentOptions()
-	m_ui.hardwareRendererGroup->setVisible(false);
-	m_ui.verticalLayout->removeWidget(m_ui.hardwareRendererGroup);
-	m_ui.softwareRendererGroup->setVisible(false);
-	m_ui.verticalLayout->removeWidget(m_ui.softwareRendererGroup);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Global Settings
@@ -109,13 +104,12 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* 
 	SettingWidgetBinder::BindWidgetToEnumSetting(sif, m_ui.fmvAspectRatio, "EmuCore/GS", "FMVAspectRatioSwitch",
 		Pcsx2Config::GSOptions::FMVAspectRatioSwitchNames, FMVAspectRatioSwitchType::Off);
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.interlacing, "EmuCore/GS", "deinterlace_mode", DEFAULT_INTERLACE_MODE);
-	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.bilinearFiltering, "EmuCore/GS", "linear_present", true);
+	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.bilinearFiltering, "EmuCore/GS", "linear_present_mode", static_cast<int>(GSPostBilinearMode::BilinearSmooth));
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.integerScaling, "EmuCore/GS", "IntegerScaling", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.PCRTCOffsets, "EmuCore/GS", "pcrtc_offsets", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.PCRTCOverscan, "EmuCore/GS", "pcrtc_overscan", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.PCRTCAntiBlur, "EmuCore/GS", "pcrtc_antiblur", true);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.DisableInterlaceOffset, "EmuCore/GS", "disable_interlace_offset", false);
-	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.internalResolutionScreenshots, "EmuCore/GS", "InternalResolutionScreenshots", false);
 	SettingWidgetBinder::BindWidgetToFloatSetting(sif, m_ui.zoom, "EmuCore/GS", "Zoom", 100.0f);
 	SettingWidgetBinder::BindWidgetToFloatSetting(sif, m_ui.stretchY, "EmuCore/GS", "StretchY", 100.0f);
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.cropLeft, "EmuCore/GS", "CropLeft", 0);
@@ -148,6 +142,8 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* 
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.shadeBoostContrast, "EmuCore/GS", "ShadeBoost_Contrast", false);
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.shadeBoostSaturation, "EmuCore/GS", "ShadeBoost_Saturation", false);
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.tvShader, "EmuCore/GS", "TVShader", DEFAULT_TV_SHADER_MODE);
+	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.casMode, "EmuCore/GS", "CASMode", static_cast<int>(GSCASMode::Disabled));
+	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.casSharpness, "EmuCore/GS", "CASSharpness", DEFAULT_CAS_SHARPNESS);
 
 	connect(m_ui.shadeBoost, QOverload<int>::of(&QCheckBox::stateChanged), this, &GraphicsSettingsWidget::onShadeBoostChanged);
 	onShadeBoostChanged();
@@ -279,7 +275,7 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* 
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.skipPresentingDuplicateFrames, "EmuCore/GS", "SkipDuplicateFrames", false);
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.overrideTextureBarriers, "EmuCore/GS", "OverrideTextureBarriers", -1, -1);
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.overrideGeometryShader, "EmuCore/GS", "OverrideGeometryShaders", -1, -1);
-	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.gsDumpCompression, "EmuCore/GS", "GSDumpCompression", static_cast<int>(GSDumpCompressionMethod::LZMA));
+	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.gsDumpCompression, "EmuCore/GS", "GSDumpCompression", static_cast<int>(GSDumpCompressionMethod::Zstandard));
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.disableFramebufferFetch, "EmuCore/GS", "DisableFramebufferFetch", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(sif, m_ui.disableDualSource, "EmuCore/GS", "DisableDualSourceBlend", false);
 	SettingWidgetBinder::BindWidgetToIntSetting(sif, m_ui.gsDownloadMode, "EmuCore/GS", "HWDownloadMode", static_cast<int>(GSHardwareDownloadMode::Enabled));
@@ -322,7 +318,7 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* 
 	}
 
 	connect(m_ui.renderer, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &GraphicsSettingsWidget::onRendererChanged);
-	connect(m_ui.enableHWFixes, &QCheckBox::stateChanged, this, &GraphicsSettingsWidget::onEnableHardwareFixesChanged);
+	connect(m_ui.enableHWFixes, &QCheckBox::stateChanged, this, &GraphicsSettingsWidget::updateRendererDependentOptions);
 	connect(m_ui.textureFiltering, &QComboBox::currentIndexChanged, this, &GraphicsSettingsWidget::onTextureFilteringChange);
 	connect(m_ui.swTextureFiltering, &QComboBox::currentIndexChanged, this, &GraphicsSettingsWidget::onSWTextureFilteringChange);
 	updateRendererDependentOptions();
@@ -350,7 +346,7 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* 
 		dialog->registerWidgetHelp(m_ui.DisableInterlaceOffset, tr("Disable Interlace Offset"), tr("Unchecked"),
 			tr("Disables interlacing offset which may reduce blurring in some situations."));
 
-		dialog->registerWidgetHelp(m_ui.bilinearFiltering, tr("Bilinear Filtering"), tr("Checked"),
+		dialog->registerWidgetHelp(m_ui.bilinearFiltering, tr("Bilinear Filtering"), tr("Bilinear (Sharp)"),
 			tr("Enables bilinear post processing filter. Smooths the overall picture as it is displayed on the screen. Corrects positioning between pixels."));
 
 		dialog->registerWidgetHelp(m_ui.PCRTCOffsets, tr("Screen Offsets"), tr("Unchecked"),
@@ -367,9 +363,6 @@ GraphicsSettingsWidget::GraphicsSettingsWidget(SettingsDialog* dialog, QWidget* 
 		
 		dialog->registerWidgetHelp(m_ui.vsync, tr("VSync"), tr("Unchecked"),
 			tr("Enable this option to match PCSX2's refresh rate with your current monitor or screen. VSync is automatically disabled when it is not possible (eg. running at non-100% speed)."));
-
-		dialog->registerWidgetHelp(m_ui.internalResolutionScreenshots, tr("Internal Resolution Screenshots"), tr("Unchecked"),
-			tr("Saves screenshots at internal render resolution and without postprocessing. If this option is disabled, the screenshots will be taken at the window's resolution. Internal resolution screenshots can be very large at high rendering scales."));
 
 		dialog->registerWidgetHelp(m_ui.integerScaling, tr("Integer Scaling"), tr("Unchecked"),
 			tr("Adds padding to the display area to ensure that the ratio between pixels on the host to pixels in the console is an integer number. May result in a sharper image in some 2D games."));
@@ -620,13 +613,6 @@ void GraphicsSettingsWidget::onGpuPaletteConversionChanged(int state)
 	m_ui.anisotropicFiltering->setEnabled(!enabled);
 }
 
-void GraphicsSettingsWidget::onEnableHardwareFixesChanged()
-{
-	const bool enabled = (m_ui.enableHWFixes->checkState() == Qt::Checked);
-	m_ui.hardwareRendererGroup->setTabEnabled(2, enabled);
-	m_ui.hardwareRendererGroup->setTabEnabled(3, enabled);
-}
-
 GSRendererType GraphicsSettingsWidget::getEffectiveRenderer() const
 {
 	const GSRendererType type =
@@ -648,58 +634,20 @@ void GraphicsSettingsWidget::updateRendererDependentOptions()
 
 	const bool is_hardware = (type == GSRendererType::DX11 || type == GSRendererType::DX12 || type == GSRendererType::OGL || type == GSRendererType::VK || type == GSRendererType::Metal);
 	const bool is_software = (type == GSRendererType::SW);
-	const int current_tab = m_hardware_renderer_visible ? m_ui.hardwareRendererGroup->currentIndex() : m_ui.softwareRendererGroup->currentIndex();
+	const bool hw_fixes = (is_hardware && m_ui.enableHWFixes->checkState() == Qt::Checked);
+	const int prev_tab = m_ui.tabs->currentIndex();
 
-	// move advanced tab to the correct parent
-	static constexpr std::array<const char*, 3> move_tab_names = {{"Display", "OSD", "Advanced"}};
-	const std::array<QWidget*, 3> move_tab_pointers = {{m_ui.gameDisplayTab, m_ui.osdTab, m_ui.advancedTab}};
-	for (size_t i = 0; i < move_tab_pointers.size(); i++)
-	{
-		QWidget* tab = move_tab_pointers[i];
-		const QString tab_label(tr(move_tab_names[i]));
-		if (const int index = m_ui.softwareRendererGroup->indexOf(tab); index >= 0 && is_hardware)
-			m_ui.softwareRendererGroup->removeTab(index);
-		if (const int index = m_ui.hardwareRendererGroup->indexOf(tab); index >= 0 && is_software)
-			m_ui.hardwareRendererGroup->removeTab(index);
-		if (const int index = m_ui.hardwareRendererGroup->indexOf(tab); index < 0 && is_hardware)
-			m_ui.hardwareRendererGroup->insertTab((i == 0) ? 0 : m_ui.hardwareRendererGroup->count(), tab, tab_label);
-		if (const int index = m_ui.softwareRendererGroup->indexOf(tab); index < 0 && is_software)
-			m_ui.softwareRendererGroup->insertTab((i == 0) ? 0 : m_ui.softwareRendererGroup->count(), tab, tab_label);
-	}
+	m_ui.tabs->setTabVisible(1, is_hardware); // hw rendering
+	m_ui.tabs->setTabVisible(2, is_software); // sw rendering
+	m_ui.tabs->setTabVisible(3, hw_fixes); // hardware fixes
+	m_ui.tabs->setTabVisible(4, hw_fixes); // upscaling fixes
+	m_ui.tabs->setTabVisible(5, is_hardware); // texture replacement
 
-	if (m_hardware_renderer_visible != is_hardware)
-	{
-		m_ui.hardwareRendererGroup->setVisible(is_hardware);
-		if (!is_hardware)
-		{
-			m_ui.verticalLayout->removeWidget(m_ui.hardwareRendererGroup);
-		}
-		else
-		{
-			// map first two tabs over, skip hacks
-			m_ui.verticalLayout->insertWidget(1, m_ui.hardwareRendererGroup);
-			m_ui.hardwareRendererGroup->setCurrentIndex((current_tab < 2) ? current_tab : (current_tab + 3));
-		}
-
-		m_hardware_renderer_visible = is_hardware;
-	}
-
-	if (m_software_renderer_visible != is_software)
-	{
-		m_ui.softwareRendererGroup->setVisible(is_software);
-		if (is_hardware)
-		{
-			m_ui.verticalLayout->removeWidget(m_ui.softwareRendererGroup);
-		}
-		else
-		{
-			// software has no hacks tabs
-			m_ui.verticalLayout->insertWidget(1, m_ui.softwareRendererGroup);
-			m_ui.softwareRendererGroup->setCurrentIndex((current_tab >= 5) ? (current_tab - 3) : (current_tab >= 2 ? 1 : current_tab));
-		}
-
-		m_software_renderer_visible = is_software;
-	}
+	// move back to the renderer if we're on one of the now-hidden tabs
+	if (is_software && (prev_tab == 1 || (prev_tab >= 2 && prev_tab <= 5)))
+		m_ui.tabs->setCurrentIndex(2);
+	else if (is_hardware && prev_tab == 2)
+		m_ui.tabs->setCurrentIndex(1);
 
 	m_ui.overrideTextureBarriers->setDisabled(is_sw_dx);
 	m_ui.overrideGeometryShader->setDisabled(is_sw_dx);
@@ -796,8 +744,4 @@ void GraphicsSettingsWidget::updateRendererDependentOptions()
 				m_ui.fullscreenModes->setCurrentIndex(m_ui.fullscreenModes->count() - 1);
 		}
 	}
-
-	m_ui.enableHWFixes->setEnabled(is_hardware);
-	if (is_hardware)
-		onEnableHardwareFixesChanged();
 }
