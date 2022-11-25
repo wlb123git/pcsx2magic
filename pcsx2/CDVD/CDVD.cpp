@@ -3017,6 +3017,29 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 						memcpy(cdvd.SCMDResult, &temp_mechaver[0], 4);
 						break;
 
+					case 0x01: // get DSP version (1:3)
+						SetSCMDResultSize(3);
+						{
+							int index = ((BiosVersion >> 8) - 1) * 10 + ((BiosVersion & 0xff) / 10);
+							if ((index > 13) || (index < 0))
+								index = 13;
+							if (index == 0) // 0100, 0101
+								cdvd.SCMDResult[1] = 0;
+							else if ((index > 0) && (index < 5)) // 0110, 0120
+								cdvd.SCMDResult[1] = 1;
+							else if (index == 5) // 0150
+								cdvd.SCMDResult[1] = 2;
+							else if (index > 7) // 0170 and up
+								cdvd.SCMDResult[1] = 3;
+							else if ((temp_mechaver[1] == 3) && (temp_mechaver[2] >= 6)) // 0160 with mechacon >= 3.6
+								cdvd.SCMDResult[1] = 3;
+							else
+								cdvd.SCMDResult[1] = 2; // 0160 with mechacon < 3.6
+							cdvd.SCMDResult[2] = 0; // ??
+						}
+						cdvd.SCMDResult[0] = 0; // returns 0 on success
+						break;
+
 					case 0x30:
 						SetSCMDResultSize(2);
 						cdvd.SCMDResult[0] = cdvd.Status;
