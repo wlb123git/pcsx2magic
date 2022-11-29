@@ -39,6 +39,7 @@
 #include "pcsx2/INISettingsInterface.h"
 #include "pcsx2/PerformanceMetrics.h"
 #include "pcsx2/Recording/InputRecording.h"
+#include "pcsx2/Recording/InputRecordingControls.h"
 
 #include "AboutDialog.h"
 #include "AutoUpdaterDialog.h"
@@ -54,6 +55,7 @@
 #include "Settings/InterfaceSettingsWidget.h"
 #include "SettingWidgetBinder.h"
 #include "svnrev.h"
+#include "Tools/InputRecording/InputRecordingViewer.h"
 #include "Tools/InputRecording/NewInputRecordingDlg.h"
 
 #ifdef _WIN32
@@ -188,8 +190,12 @@ QWidget* MainWindow::getContentParent()
 
 void MainWindow::setupAdditionalUi()
 {
+	const bool show_advanced_settings = QtHost::ShouldShowAdvancedSettings();
+
 	setWindowIcon(QIcon(QStringLiteral("%1/icons/AppIconLarge.png").arg(QtHost::GetResourcesBasePath())));
 	makeIconsMasks(menuBar());
+
+	m_ui.menuDebug->menuAction()->setVisible(show_advanced_settings);
 
 	const bool toolbar_visible = Host::GetBaseBoolSettingValue("UI", "ShowToolbar", false);
 	m_ui.actionViewToolbar->setChecked(toolbar_visible);
@@ -259,7 +265,7 @@ void MainWindow::setupAdditionalUi()
 #ifdef ENABLE_RAINTEGRATION
 	if (Achievements::IsUsingRAIntegration())
 	{
-		QMenu* raMenu = new QMenu(QStringLiteral("RAIntegration"), m_ui.menuDebug);
+		QMenu* raMenu = new QMenu(QStringLiteral("RAIntegration"), m_ui.menu_Tools);
 		connect(raMenu, &QMenu::aboutToShow, this, [this, raMenu]() {
 			raMenu->clear();
 
@@ -284,7 +290,7 @@ void MainWindow::setupAdditionalUi()
 				});
 			}
 		});
-		m_ui.menuDebug->insertMenu(m_ui.actionToggleSoftwareRendering, raMenu);
+		m_ui.menu_Tools->insertMenu(m_ui.menuInput_Recording->menuAction(), raMenu);
 	}
 #endif
 }
@@ -314,7 +320,6 @@ void MainWindow::connectSignals()
 	connect(m_ui.actionGameListSettings, &QAction::triggered, [this]() { doSettings("Game List"); });
 	connect(m_ui.actionEmulationSettings, &QAction::triggered, [this]() { doSettings("Emulation"); });
 	connect(m_ui.actionBIOSSettings, &QAction::triggered, [this]() { doSettings("BIOS"); });
-	connect(m_ui.actionSystemSettings, &QAction::triggered, [this]() { doSettings("System"); });
 	connect(m_ui.actionGraphicsSettings, &QAction::triggered, [this]() { doSettings("Graphics"); });
 	connect(m_ui.actionAudioSettings, &QAction::triggered, [this]() { doSettings("Audio"); });
 	connect(m_ui.actionMemoryCardSettings, &QAction::triggered, [this]() { doSettings("Memory Cards"); });
@@ -374,8 +379,9 @@ void MainWindow::connectSignals()
 	SettingWidgetBinder::BindWidgetToBoolSetting(nullptr, m_ui.actionEnableLogTimestamps, "Logging", "EnableTimestamps", true);
 	SettingWidgetBinder::BindWidgetToBoolSetting(nullptr, m_ui.actionEnableCDVDVerboseReads, "EmuCore", "CdvdVerboseReads", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(nullptr, m_ui.actionSaveBlockDump, "EmuCore", "CdvdDumpBlocks", false);
+	m_ui.actionShowAdvancedSettings->setChecked(QtHost::ShouldShowAdvancedSettings());
 	connect(m_ui.actionSaveBlockDump, &QAction::toggled, this, &MainWindow::onBlockDumpActionToggled);
-
+	connect(m_ui.actionShowAdvancedSettings, &QAction::toggled, this, &MainWindow::onShowAdvancedSettingsToggled);
 	connect(m_ui.actionSaveGSDump, &QAction::triggered, this, &MainWindow::onSaveGSDumpActionTriggered);
 
 	// Input Recording
@@ -384,6 +390,7 @@ void MainWindow::connectSignals()
 	connect(m_ui.actionInputRecStop, &QAction::triggered, this, &MainWindow::onInputRecStopActionTriggered);
 	SettingWidgetBinder::BindWidgetToBoolSetting(nullptr, m_ui.actionInputRecConsoleLogs, "Logging", "EnableInputRecordingLogs", false);
 	SettingWidgetBinder::BindWidgetToBoolSetting(nullptr, m_ui.actionInputRecControllerLogs, "Logging", "EnableControllerLogs", false);
+	connect(m_ui.actionInputRecOpenViewer, &QAction::triggered, this, &MainWindow::onInputRecOpenViewer);
 
 	// These need to be queued connections to stop crashing due to menus opening/closing and switching focus.
 	connect(m_game_list_widget, &GameListWidget::refreshProgress, this, &MainWindow::onGameListRefreshProgress);
@@ -456,10 +463,15 @@ void MainWindow::recreateSettings()
 	QString current_category;
 	if (m_settings_dialog)
 	{
+		const bool was_visible = m_settings_dialog->isVisible();
+
 		current_category = m_settings_dialog->getCategory();
 		m_settings_dialog->hide();
 		m_settings_dialog->deleteLater();
 		m_settings_dialog = nullptr;
+
+		if (!was_visible)
+			return;
 	}
 
 	doSettings(current_category.toUtf8().constData());
@@ -820,6 +832,48 @@ void MainWindow::onBlockDumpActionToggled(bool checked)
 	Host::CommitBaseSettingChanges();
 
 	g_emu_thread->applySettings();
+}
+
+void MainWindow::onShowAdvancedSettingsToggled(bool checked)
+{
+	if (checked && !Host::GetBaseBoolSettingValue("UI", "AdvancedSettingsWarningShown", false))
+	{
+		QCheckBox* cb = new QCheckBox(tr("Do not show again"));
+		QMessageBox mb(this);
+		mb.setWindowTitle(tr("Show Advanced Settings"));
+		mb.setText(
+			tr("Changing advanced settings can have unpredictable effects on games, including graphical glitches, lock-ups, and even corrupted save files. "
+			   "We do not recommend changing advanced settings unless you know what you are doing, and the implications of changing each setting.\n\n"
+			   "The PCSX2 team will not provide any support for configurations that modify these settings, you are on your own.\n\n"
+			   "Are you sure you want to continue?"));
+		mb.setIcon(QMessageBox::Warning);
+		mb.addButton(QMessageBox::Yes);
+		mb.addButton(QMessageBox::No);
+		mb.setDefaultButton(QMessageBox::No);
+		mb.setCheckBox(cb);
+
+		if (mb.exec() == QMessageBox::No)
+		{
+			QSignalBlocker sb(m_ui.actionShowAdvancedSettings);
+			m_ui.actionShowAdvancedSettings->setChecked(false);
+			return;
+		}
+
+		if (cb->isChecked())
+		{
+			Host::SetBaseBoolSettingValue("UI", "AdvancedSettingsWarningShown", true);
+			Host::CommitBaseSettingChanges();
+		}
+	}
+
+	Host::SetBaseBoolSettingValue("UI", "ShowAdvancedSettings", checked);
+	Host::CommitBaseSettingChanges();
+
+	m_ui.menuDebug->menuAction()->setVisible(checked);
+
+	// just recreate the entire settings window, it's easier.
+	if (m_settings_dialog)
+		recreateSettings();
 }
 
 void MainWindow::saveStateToConfig()
@@ -1586,7 +1640,7 @@ void MainWindow::onInputRecNewActionTriggered()
 	const bool wasRunning = s_vm_valid;
 	if (wasRunning && !wasPaused)
 	{
-		VMManager::SetPaused(true);
+		g_emu_thread->setVMPaused(true);
 	}
 
 	NewInputRecordingDlg dlg(this);
@@ -1594,29 +1648,37 @@ void MainWindow::onInputRecNewActionTriggered()
 
 	if (result == QDialog::Accepted)
 	{
-		if (g_InputRecording.Create(
-				dlg.getFilePath(),
-				dlg.getInputRecType() == InputRecording::Type::FROM_SAVESTATE,
-				dlg.getAuthorName()))
-		{
-			return;
-		}
+		Host::RunOnCPUThread([&, filePath = dlg.getFilePath(),
+								 fromSavestate = dlg.getInputRecType() == InputRecording::Type::FROM_SAVESTATE,
+								 authorName = dlg.getAuthorName()]() {
+			if (g_InputRecording.create(
+					filePath,
+					fromSavestate,
+					authorName))
+			{
+				QtHost::RunOnUIThread([&]() {
+					m_ui.actionInputRecNew->setEnabled(false);
+					m_ui.actionInputRecStop->setEnabled(true);
+					m_ui.actionReset->setEnabled(!g_InputRecording.isTypeSavestate());
+				});
+			}
+		});
 	}
 
 	if (wasRunning && !wasPaused)
 	{
-		VMManager::SetPaused(false);
+		g_emu_thread->setVMPaused(false);
 	}
 }
-
-#include "pcsx2/Recording/InputRecordingControls.h"
 
 void MainWindow::onInputRecPlayActionTriggered()
 {
 	const bool wasPaused = s_vm_paused;
 
 	if (!wasPaused)
-		g_InputRecordingControls.PauseImmediately();
+	{
+		g_emu_thread->setVMPaused(true);
+	}
 
 	QFileDialog dialog(this);
 	dialog.setFileMode(QFileDialog::ExistingFile);
@@ -1627,30 +1689,49 @@ void MainWindow::onInputRecPlayActionTriggered()
 	{
 		fileNames = dialog.selectedFiles();
 	}
-
-	if (fileNames.length() > 0)
+	else
 	{
-		if (g_InputRecording.IsActive())
+		if (!wasPaused)
 		{
-			g_InputRecording.Stop();
-		}
-		if (g_InputRecording.Play(fileNames.first().toStdString()))
-		{
+			g_emu_thread->setVMPaused(false);
 			return;
 		}
 	}
 
-	if (!wasPaused)
+	if (fileNames.length() > 0)
 	{
-		g_InputRecordingControls.Resume();
+		if (g_InputRecording.isActive())
+		{
+			Host::RunOnCPUThread([]() {
+				g_InputRecording.stop();
+			});
+			m_ui.actionInputRecStop->setEnabled(false);
+		}
+		Host::RunOnCPUThread([&, filename = fileNames.first().toStdString()]() {
+			if (g_InputRecording.play(filename))
+			{
+				QtHost::RunOnUIThread([&]() {
+					m_ui.actionInputRecNew->setEnabled(false);
+					m_ui.actionInputRecStop->setEnabled(true);
+					m_ui.actionReset->setEnabled(!g_InputRecording.isTypeSavestate());
+				});
+			}
+		});
 	}
 }
 
 void MainWindow::onInputRecStopActionTriggered()
 {
-	if (g_InputRecording.IsActive())
+	if (g_InputRecording.isActive())
 	{
-		g_InputRecording.Stop();
+		Host::RunOnCPUThread([&]() {
+			g_InputRecording.stop();
+			QtHost::RunOnUIThread([&]() {
+				m_ui.actionInputRecNew->setEnabled(true);
+				m_ui.actionInputRecStop->setEnabled(false);
+				m_ui.actionReset->setEnabled(true);
+			});
+		});
 	}
 }
 
@@ -1658,6 +1739,32 @@ void MainWindow::onInputRecOpenSettingsTriggered()
 {
 	// TODO - Vaser - Implement
 }
+
+InputRecordingViewer* MainWindow::getInputRecordingViewer()
+{
+	if (!m_input_recording_viewer)
+	{
+		m_input_recording_viewer = new InputRecordingViewer(this);
+	}
+
+	return m_input_recording_viewer;
+}
+
+void MainWindow::updateInputRecordingActions(bool started)
+{
+	m_ui.actionInputRecNew->setEnabled(started);
+	m_ui.actionInputRecPlay->setEnabled(started);
+}
+
+void MainWindow::onInputRecOpenViewer()
+{
+	InputRecordingViewer* viewer = getInputRecordingViewer();
+	if (!viewer->isVisible())
+	{
+		viewer->show();
+	}
+}
+
 
 void MainWindow::onVMStarting()
 {
@@ -1676,6 +1783,7 @@ void MainWindow::onVMStarted()
 	updateEmulationActions(true, true);
 	updateWindowTitle();
 	updateStatusBarWidgetVisibility();
+	updateInputRecordingActions(true);
 }
 
 void MainWindow::onVMPaused()
@@ -1729,6 +1837,7 @@ void MainWindow::onVMStopped()
 	updateWindowTitle();
 	updateWindowState();
 	updateStatusBarWidgetVisibility();
+	updateInputRecordingActions(false);
 
 	if (m_display_widget)
 	{
@@ -2387,8 +2496,8 @@ void MainWindow::setGameListEntryCoverImage(const GameList::Entry* entry)
 void MainWindow::clearGameListEntryPlayTime(const GameList::Entry* entry)
 {
 	if (QMessageBox::question(this, tr("Confirm Reset"),
-		tr("Are you sure you want to reset the play time for '%1'?\n\nThis action cannot be undone.")
-		.arg(QString::fromStdString(entry->title))) != QMessageBox::Yes)
+			tr("Are you sure you want to reset the play time for '%1'?\n\nThis action cannot be undone.")
+				.arg(QString::fromStdString(entry->title))) != QMessageBox::Yes)
 	{
 		return;
 	}

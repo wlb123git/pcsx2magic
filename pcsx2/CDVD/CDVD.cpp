@@ -1099,8 +1099,11 @@ void cdvdReset()
 
 	// If we are recording, always use the same RTC setting
 	// for games that use the RTC to seed their RNG -- this is very important to be the same everytime!
-#ifndef DISABLE_RECORDING
-	if (g_InputRecording.IsActive())
+	bool input_recording_active = false;
+#ifdef PCSX2_CORE
+	input_recording_active = g_InputRecording.isActive();
+#endif
+	if (input_recording_active)
 	{
 		Console.WriteLn("Input Recording Active - Using Constant RTC of 04-03-2020 (DD-MM-YYYY)");
 		// Why not just 0 everything? Some games apparently require the date to be valid in terms of when
@@ -1113,7 +1116,6 @@ void cdvdReset()
 		cdvd.RTC.year = 20;
 	}
 	else
-#endif
 	{
 		// CDVD internally uses GMT+9.  If you think the time's wrong, you're wrong.
 		// Set up your time zone and winter/summer in the BIOS.  No PS2 BIOS I know of features automatic DST.
@@ -1658,13 +1660,18 @@ static uint cdvdStartSeek(uint newsector, CDVD_MODE_TYPE mode)
 		}
 		else
 		{
-			psxRegs.interrupt &= ~(1 << IopEvt_CdvdSectorReady);
-			cdvd.nextSectorsBuffered = 0;
+			if (delta >= cdvd.nextSectorsBuffered)
+			{
+				psxRegs.interrupt &= ~(1 << IopEvt_CdvdSectorReady);
+				cdvd.nextSectorsBuffered = 0;
+			}
+			else
+				cdvd.nextSectorsBuffered -= delta;
 		}
 	}
 
 	// Only do this on reads, the seek kind of accounts for this and then it reads the sectors after
-	if ((delta || cdvd.Action == cdvdAction_Seek) && !isSeeking)
+	if ((delta || cdvd.Action == cdvdAction_Seek) && !isSeeking && !cdvd.nextSectorsBuffered)
 	{
 		const u32 rotationalLatency = cdvdRotationalLatency((CDVD_MODE_TYPE)cdvdIsDVD());
 		//DevCon.Warning("%s rotational latency at sector %d is %d cycles", (cdvd.SpindlCtrl & CDVD_SPINDLE_CAV) ? "CAV" : "CLV", cdvd.SeekToSector, rotationalLatency);
@@ -1672,8 +1679,19 @@ static uint cdvdStartSeek(uint newsector, CDVD_MODE_TYPE mode)
 		CDVDSECTORREADY_INT(seektime);
 		seektime += (cdvd.BlockSize / 4) * 12;
 	}
-	else
+	else if (!isSeeking) // Not seeking but we have buffered stuff, need to just account for DMA time (and kick the read DMA if it's not running for some reason.
+	{
+		if (!(psxRegs.interrupt & (1 << IopEvt_CdvdSectorReady)))
+		{
+			seektime += cdvd.ReadTime;
+			CDVDSECTORREADY_INT(seektime);
+		}
+		seektime += (cdvd.BlockSize / 4) * 12;
+	}
+	else // We're seeking, so kick off the buffering after the seek finishes.
+	{
 		CDVDSECTORREADY_INT(seektime);
+	}
 
 	// Clear the action on the following command, so we can rotate after seek.
 	if (cdvd.nCommand != N_CD_SEEK)

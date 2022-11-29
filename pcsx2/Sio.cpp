@@ -421,18 +421,6 @@ u8 Sio0::Memcard(u8 value)
 // SIO2
 // ============================================================================
 
-void Sio2::UpdateInputRecording(u8 dataIn, u8 dataOut)
-{
-	if (EmuConfig.EnableRecordingTools)
-	{
-		// Ignore multitapped slots, only allow physical ports
-		if (slot == 0)
-		{
-			g_InputRecording.ControllerInterrupt(port, fifoOut.size(), dataIn, dataOut);
-		}
-	}
-}
-
 
 Sio2::Sio2()
 {
@@ -542,7 +530,6 @@ void Sio2::Pad()
 	// Send PAD our current port, and get back whatever it says the first response byte should be.
 	const u8 firstResponseByte = PADstartPoll(port, slot);
 	fifoOut.push_back(firstResponseByte);
-	UpdateInputRecording(0x01, firstResponseByte);
 	// Some games will refuse to read ALL pads, if RECV1 is not set to the CONNECTED value when ANY pad is polled,
 	// REGARDLESS of whether that pad is truly connected or not.
 	SetRecv1(Recv1::CONNECTED);
@@ -554,7 +541,6 @@ void Sio2::Pad()
 		fifoIn.pop_front();
 		const u8 responseByte = PADpoll(commandByte);
 		fifoOut.push_back(responseByte);
-		UpdateInputRecording(commandByte, responseByte);
 	}
 }
 

@@ -4056,6 +4056,8 @@ SCES-53931:
   name: "Shinobido - Way of the Ninja"
   region: "PAL-M5"
   compat: 5
+  clampModes:
+    eeClampMode: 3 # Fixes hang going in to the gardens.
 SCES-53950:
   name: "F1 '06"
   region: "PAL-M7"
@@ -5120,7 +5122,7 @@ SCKA-20072:
   region: "NTSC-K"
 SCKA-20073:
   name: "Final Fantasy XII"
-  region: "NTSC-J"
+  region: "NTSC-K"
 SCKA-20078:
   name: "Killzone [PlayStation 2 Big Hit Series]"
   region: "NTSC-K"
@@ -17622,8 +17624,6 @@ SLES-53702:
   name: "Resident Evil 4"
   region: "PAL-M5"
   compat: 5
-  gameFixes:
-    - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
     halfPixelOffset: 2 # Fixes blurriness.
 SLES-53703:
@@ -17824,8 +17824,6 @@ SLES-53755:
 SLES-53756:
   name: "Resident Evil 4"
   region: "PAL-M5"
-  gameFixes:
-    - BlitInternalFPSHack # Fixes internal FPS detection.
   gsHWFixes:
     halfPixelOffset: 2 # Fixes blurriness.
 SLES-53758:
@@ -20269,21 +20267,29 @@ SLES-54778:
   region: "PAL-E"
   gsHWFixes:
     mipmap: 1
+    halfPixelOffset: 1 # Fixes ghosting.
+    alignSprite: 1 # Fixes vertical lines.
 SLES-54779:
   name: "Harry Potter and the Order of the Phoenix"
   region: "PAL-M5"
   gsHWFixes:
     mipmap: 1
+    halfPixelOffset: 1 # Fixes ghosting.
+    alignSprite: 1 # Fixes vertical lines.
 SLES-54780:
   name: "Harry Potter and the Order of the Phoenix"
   region: "PAL-M6"
   gsHWFixes:
     mipmap: 1
+    halfPixelOffset: 1 # Fixes ghosting.
+    alignSprite: 1 # Fixes vertical lines.
 SLES-54781:
   name: "Harry Potter and the Order of the Phoenix"
   region: "PAL-M5"
   gsHWFixes:
     mipmap: 1
+    halfPixelOffset: 1 # Fixes ghosting.
+    alignSprite: 1 # Fixes vertical lines.
 SLES-54782:
   name: "Obscure 2"
   region: "PAL-M5"
@@ -22659,7 +22665,7 @@ SLKA-25013:
     - "SLKA-25012"
 SLKA-25014:
   name: "Evolution Snowboarding"
-  region: "NTSC-J"
+  region: "NTSC-K"
 SLKA-25015:
   name: "Evolution Skateboarding"
   region: "NTSC-K"
@@ -22668,10 +22674,10 @@ SLKA-25018:
   region: "NTSC-K"
 SLKA-25021:
   name: "Shinobi"
-  region: "NTSC-M3"
+  region: "NTSC-K"
   compat: 5
 SLKA-25024:
-  name: "Disneys Stitch - Experiment 626"
+  name: "Disney's Stitch - Experiment 626"
   region: "NTSC-K"
 SLKA-25026:
   name: "Chaos Legion"
@@ -22817,7 +22823,7 @@ SLKA-25067:
   region: "NTSC-K"
 SLKA-25070:
   name: "Guilty Gear XX Reload - The Midnight Carnival"
-  region: "NTSC-J-K"
+  region: "NTSC-K"
 SLKA-25071:
   name: "Tantei Jinguji Saburo 8 Innocent Black"
   region: "NTSC-K"
@@ -22876,7 +22882,7 @@ SLKA-25086:
     vuClampMode: 2 # Missing geometry with microVU.
 SLKA-25087:
   name: "FIFA Soccer 2004"
-  region: "NTSC-J"
+  region: "NTSC-K"
   compat: 5
   clampModes:
     vuClampMode: 2 # Missing geometry with microVU.
@@ -23340,7 +23346,7 @@ SLKA-25262:
   region: "NTSC-K"
 SLKA-25263:
   name: "NanoBreaker"
-  region: "NTSC-J"
+  region: "NTSC-K"
   compat: 5
 SLKA-25264:
   name: "Full Spectrum Warrior"
@@ -27255,7 +27261,7 @@ SLPM-65139:
   region: "NTSC-J"
   compat: 5
 SLPM-65140:
-  name: "Jojo's Bizarre Adventure 5"
+  name: "Jojo no Kimyou na Bouken - Ougon no Kaze"
   region: "NTSC-J"
 SLPM-65141:
   name: "Tsuzuse Gareijiri"
@@ -30459,6 +30465,8 @@ SLPM-66091:
   name: "Shinobido Imashime"
   region: "NTSC-J"
   compat: 5
+  clampModes:
+    eeClampMode: 3 # Fixes hang going in to the gardens.
 SLPM-66092:
   name: "Taito Memories Gekan"
   region: "NTSC-J"
@@ -32194,6 +32202,8 @@ SLPM-66555:
 SLPM-66556:
   name: "Shinobido Imashime [Spike The Best]"
   region: "NTSC-J"
+  clampModes:
+    eeClampMode: 3 # Fixes hang going in to the gardens.
 SLPM-66557:
   name: "FIFA Street [EA Best Hits]"
   region: "NTSC-J"
@@ -33417,6 +33427,8 @@ SLPM-66886:
   region: "NTSC-J"
   gsHWFixes:
     mipmap: 1
+    halfPixelOffset: 1 # Fixes ghosting.
+    alignSprite: 1 # Fixes vertical lines.
 SLPM-66887:
   name: "Harukanaru Jikuu no Kade 3 - Unmei no Meikyuu [Koei the Best]"
   region: "NTSC-J"
@@ -36914,6 +36926,8 @@ SLPS-25352:
   name: "Espgaluda"
   region: "NTSC-J"
   compat: 5
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better with partial preload.
 SLPS-25353:
   name: "Xenosaga Freaks"
   region: "NTSC-J"
@@ -44398,6 +44412,8 @@ SLUS-21035:
   region: "NTSC-U"
   clampModes:
     eeClampMode: 2 # Fixes hang when the baseball hits the ground.
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better and stops freezing and or stuttering.
   patches:
     2243CE1D:
       content: |-
@@ -45915,6 +45931,8 @@ SLUS-21324:
   region: "NTSC-U"
   clampModes:
     eeClampMode: 2 # Fixes hang when the baseball hits the ground.
+  gsHWFixes:
+    texturePreloading: 1 # Performs much better and stops freezing and or stuttering.
   patches:
     D592B291:
       content: |-
@@ -47354,6 +47372,8 @@ SLUS-21619:
   compat: 5
   gsHWFixes:
     mipmap: 1
+    halfPixelOffset: 1 # Fixes ghosting.
+    alignSprite: 1 # Fixes vertical lines.
 SLUS-21620:
   name: "NCAA Football '08"
   region: "NTSC-U"

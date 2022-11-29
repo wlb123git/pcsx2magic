@@ -60,6 +60,8 @@
 
 #include "IconsFontAwesome5.h"
 
+#include "Recording/InputRecording.h"
+
 #include "common/emitter/tools.h"
 #ifdef _M_X86
 #include "common/emitter/x86_intrin.h"
@@ -67,6 +69,8 @@
 
 #ifdef _WIN32
 #include "common/RedtapeWindows.h"
+#include <objbase.h>
+#include <timeapi.h>
 #endif
 
 namespace VMManager
@@ -82,6 +86,7 @@ namespace VMManager
 	static void CheckForDEV9ConfigChanges(const Pcsx2Config& old_config);
 	static void CheckForMemoryCardConfigChanges(const Pcsx2Config& old_config);
 	static void EnforceAchievementsChallengeModeSettings();
+	static void LogUnsafeSettingsToConsole(const std::string& messages);
 	static void WarnAboutUnsafeSettings();
 
 	static bool AutoDetectSource(const std::string& filename);
@@ -376,7 +381,7 @@ std::string VMManager::GetGameSettingsPath(const std::string_view& game_serial, 
 
 	return game_serial.empty() ?
 			   Path::Combine(EmuFolders::GameSettings, fmt::format("{:08X}.ini", game_crc)) :
-               Path::Combine(EmuFolders::GameSettings, fmt::format("{}_{:08X}.ini", sanitized_serial, game_crc));
+			   Path::Combine(EmuFolders::GameSettings, fmt::format("{}_{:08X}.ini", sanitized_serial, game_crc));
 }
 
 std::string VMManager::GetInputProfilePath(const std::string_view& name)
@@ -1170,6 +1175,12 @@ void VMManager::Reset()
 	// gameid change, so apply settings
 	if (game_was_started)
 		UpdateRunningGame(true, false);
+
+	if (g_InputRecording.isActive())
+	{
+		g_InputRecording.handleReset();
+		GetMTGS().PresentCurrentFrame();
+	}
 }
 
 std::string VMManager::GetSaveStateFileName(const char* game_serial, u32 game_crc, s32 slot)
@@ -1224,6 +1235,11 @@ bool VMManager::DoLoadState(const char* filename)
 		SaveState_UnzipFromDisk(filename);
 		UpdateRunningGame(false, false);
 		Host::OnSaveStateLoaded(filename, true);
+		if (g_InputRecording.isActive())
+		{
+			g_InputRecording.handleLoadingSavestate();
+			GetMTGS().PresentCurrentFrame();
+		}
 		return true;
 	}
 	catch (Exception::BaseException& e)
@@ -1591,6 +1607,23 @@ void VMManager::Internal::VSyncOnCPUThread()
 	}
 
 	Host::CPUThreadVSync();
+
+	if (EmuConfig.EnableRecordingTools)
+	{
+		// This code is called _before_ Counter's vsync end, and _after_ vsync start
+		if (g_InputRecording.isActive())
+		{
+			// Process any outstanding recording actions (ie. toggle mode, stop the recording, etc)
+			g_InputRecording.processRecordQueue();
+			g_InputRecording.getControls().processControlQueue();
+			// Increment our internal frame counter, used to keep track of when we hit the end, etc.
+			g_InputRecording.incFrameCounter();
+			g_InputRecording.handleExceededFrameCounter();
+		}
+		// At this point, the PAD data has been read from the user for the current frame
+		// so we can either read from it, or overwrite it!
+		g_InputRecording.handleControllerDataUpdate();
+	}
 }
 
 void VMManager::CheckForCPUConfigChanges(const Pcsx2Config& old_config)
@@ -1874,6 +1907,26 @@ void VMManager::EnforceAchievementsChallengeModeSettings()
 	EmuConfig.Speedhacks.EECycleSkip = 0;
 }
 
+void VMManager::LogUnsafeSettingsToConsole(const std::string& messages)
+{
+	// a not-great way of getting rid of the icons for the console message
+	std::string console_messages(messages);
+	for (;;)
+	{
+		const std::string::size_type pos = console_messages.find("\xef");
+		if (pos != std::string::npos)
+		{
+			console_messages.erase(pos, pos + 3);
+			console_messages.insert(pos, "[Unsafe Settings]");
+		}
+		else
+		{
+			break;
+		}
+	}
+	Console.Warning(console_messages);
+}
+
 void VMManager::WarnAboutUnsafeSettings()
 {
 	std::string messages;
@@ -1896,6 +1949,8 @@ void VMManager::WarnAboutUnsafeSettings()
 		messages += ICON_FA_BLENDER " Blending is below basic, this may break effects in some games.\n";
 	if (EmuConfig.GS.CRCHack != CRCHackLevel::Automatic)
 		messages += ICON_FA_FIRST_AID " CRC Fix Level is not set to default, this may break effects in some games.\n";
+	if (EmuConfig.GS.HWDownloadMode != GSHardwareDownloadMode::Enabled)
+		messages += ICON_FA_DOWNLOAD " Hardware Download Mode is not set to Accurate, this may break rendering in some games.\n";
 	if (EmuConfig.Cpu.sseMXCSR.GetRoundMode() != SSEround_Chop || EmuConfig.Cpu.sseVUMXCSR.GetRoundMode() != SSEround_Chop)
 		messages += ICON_FA_MICROCHIP " EE FPU Round Mode is not set to default, this may break some games.\n";
 	if (!EmuConfig.Cpu.Recompiler.fpuOverflow || EmuConfig.Cpu.Recompiler.fpuExtraOverflow || EmuConfig.Cpu.Recompiler.fpuFullMode)
@@ -1917,6 +1972,8 @@ void VMManager::WarnAboutUnsafeSettings()
 	{
 		if (messages.back() == '\n')
 			messages.pop_back();
+
+		LogUnsafeSettingsToConsole(messages);
 		Host::AddKeyedOSDMessage("unsafe_settings_warning", std::move(messages), Host::OSD_WARNING_DURATION);
 	}
 	else
@@ -1952,6 +2009,8 @@ void VMManager::WarnAboutUnsafeSettings()
 	{
 		if (messages.back() == '\n')
 			messages.pop_back();
+
+		LogUnsafeSettingsToConsole(messages);
 		Host::AddKeyedOSDMessage("performance_settings_warning", std::move(messages), Host::OSD_WARNING_DURATION);
 	}
 	else

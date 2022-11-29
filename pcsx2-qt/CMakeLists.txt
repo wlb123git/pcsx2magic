@@ -43,9 +43,9 @@ target_sources(pcsx2-qt PRIVATE
 	GameList/GameListRefreshThread.h
 	GameList/GameListWidget.cpp
 	GameList/GameListWidget.h
-	Settings/AdvancedSystemSettingsWidget.cpp
-	Settings/AdvancedSystemSettingsWidget.h
-	Settings/AdvancedSystemSettingsWidget.ui
+	Settings/AdvancedSettingsWidget.cpp
+	Settings/AdvancedSettingsWidget.h
+	Settings/AdvancedSettingsWidget.ui
 	Settings/AudioSettingsWidget.cpp
 	Settings/AudioSettingsWidget.h
 	Settings/AudioSettingsWidget.ui
@@ -123,12 +123,12 @@ target_sources(pcsx2-qt PRIVATE
 	Settings/SettingsDialog.cpp
 	Settings/SettingsDialog.h
 	Settings/SettingsDialog.ui
-	Settings/SystemSettingsWidget.cpp
-	Settings/SystemSettingsWidget.h
-	Settings/SystemSettingsWidget.ui
 	Tools/InputRecording/NewInputRecordingDlg.cpp
 	Tools/InputRecording/NewInputRecordingDlg.h
 	Tools/InputRecording/NewInputRecordingDlg.ui
+	Tools/InputRecording/InputRecordingViewer.cpp
+	Tools/InputRecording/InputRecordingViewer.h
+	Tools/InputRecording/InputRecordingViewer.ui
 	resources/resources.qrc
 )
 

@@ -15,20 +15,30 @@
 
 #pragma once
 
-#include <QtWidgets/QWidget>
+#include "ui_InputRecordingViewer.h"
 
-#include "ui_AdvancedSystemSettingsWidget.h"
+#include "pcsx2/Recording/InputRecordingFile.h"
 
-class SettingsDialog;
-
-class AdvancedSystemSettingsWidget : public QWidget
+class InputRecordingViewer final : public QMainWindow
 {
 	Q_OBJECT
 
 public:
-	AdvancedSystemSettingsWidget(SettingsDialog* dialog, QWidget* parent);
-	~AdvancedSystemSettingsWidget();
+	explicit InputRecordingViewer(QWidget* parent = nullptr);
+	~InputRecordingViewer() = default;
+
+private Q_SLOTS:
+	void openFile();
+	void closeFile();
 
 private:
-	Ui::AdvancedSystemSettingsWidget m_ui;
+	Ui::InputRecordingViewer m_ui;
+
+	InputRecordingFile m_file;
+	bool m_file_open;
+
+	void loadTable();
+	QTableWidgetItem* createRowItem(std::tuple<u8, u8> analog);
+	QTableWidgetItem* createRowItem(bool pressed);
+	QTableWidgetItem* createRowItem(std::tuple<bool, u8> buttonInfo);
 };
