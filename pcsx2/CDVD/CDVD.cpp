@@ -1187,6 +1187,19 @@ void cdvdReset()
 	readAndDecryptKeyStore(1); // 0: dev, 1: retail, 2: proto?, 3: arcade
 	cdvd.mecha_state = MECHA_STATE_READY;
 	cdvdGetMechaVer(&temp_mechaver[0]);
+
+	// Patch the region on Deckard Slims (75k+)
+	if ((BiosVersion >= 0x214) && (temp_mechaver[1] == 6) && (temp_mechaver[2] >= 6)) // 220 bios and up, mecha >= 6.6
+	{
+		u8 RegionParams[12];
+		cdvdReadRegionParams(&RegionParams[0]);
+		if ((RegionParams[0] != 0) && (RegionParams[5] != 0))
+		{
+			eeMem->ROM[0x7ff04] = RegionParams[0];
+			eeMem->ROM[0x7ff52] = RegionParams[5];
+		}
+		Console.WriteLn("Patching ROM with PS2 region code %c, PS1 region code %c", RegionParams[0], RegionParams[5]);
+	}
 }
 
 struct Freeze_v10Compat
