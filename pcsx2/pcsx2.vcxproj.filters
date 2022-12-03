@@ -707,6 +707,9 @@
     <ClCompile Include="IPU\IPU_Fifo.cpp">
       <Filter>System\Ps2\IPU</Filter>
     </ClCompile>
+    <ClCompile Include="IPU\IPU_MultiISA.cpp">
+      <Filter>System\Ps2\IPU</Filter>
+    </ClCompile>
     <ClCompile Include="IPU\yuv2rgb.cpp">
       <Filter>System\Ps2\IPU</Filter>
     </ClCompile>
@@ -1511,6 +1514,9 @@
     <ClCompile Include="GS\GSLocalMemory.cpp">
       <Filter>System\Ps2\GS</Filter>
     </ClCompile>
+    <ClCompile Include="GS\GSLocalMemoryMultiISA.cpp">
+      <Filter>System\Ps2\GS</Filter>
+    </ClCompile>
     <ClCompile Include="GS\GSPerfMon.cpp">
       <Filter>System\Ps2\GS</Filter>
     </ClCompile>
@@ -1526,6 +1532,9 @@
     <ClCompile Include="GS\GSVector.cpp">
       <Filter>System\Ps2\GS</Filter>
     </ClCompile>
+    <ClCompile Include="GS\GSXXH.cpp">
+      <Filter>System\Ps2\GS</Filter>
+    </ClCompile>
     <ClCompile Include="GS\GSPng.cpp">
       <Filter>System\Ps2\GS</Filter>
     </ClCompile>
@@ -1533,6 +1542,9 @@
       <Filter>System\Ps2\GS</Filter>
     </ClCompile>
     <ClCompile Include="GS\GSLzma.cpp">
+      <Filter>System\Ps2\GS</Filter>
+    </ClCompile>
+    <ClCompile Include="GS\MultiISA.cpp">
       <Filter>System\Ps2\GS</Filter>
     </ClCompile>
     <ClCompile Include="gui\Dialogs\PINEDialog.cpp">
@@ -1616,6 +1628,9 @@
     <ClCompile Include="GS\Renderers\HW\GSRendererHW.cpp">
       <Filter>System\Ps2\GS\Renderers\Hardware</Filter>
     </ClCompile>
+    <ClCompile Include="GS\Renderers\HW\GSRendererHWMultiISA.cpp">
+      <Filter>System\Ps2\GS\Renderers\Hardware</Filter>
+    </ClCompile>
     <ClCompile Include="GS\Renderers\HW\GSTextureCache.cpp">
       <Filter>System\Ps2\GS\Renderers\Hardware</Filter>
     </ClCompile>
@@ -1635,6 +1650,9 @@
       <Filter>System\Ps2\GS\Renderers\Common</Filter>
     </ClCompile>
     <ClCompile Include="GS\Renderers\Common\GSVertexTrace.cpp">
+      <Filter>System\Ps2\GS\Renderers\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="GS\Renderers\Common\GSVertexTraceFMM.cpp">
       <Filter>System\Ps2\GS\Renderers\Common</Filter>
     </ClCompile>
     <ClCompile Include="GS\Renderers\Common\GSVertexList.cpp">
@@ -2042,6 +2060,9 @@
       <Filter>System\Ps2\IPU</Filter>
     </ClInclude>
     <ClInclude Include="IPU\IPU_Fifo.h">
+      <Filter>System\Ps2\IPU</Filter>
+    </ClInclude>
+    <ClInclude Include="IPU\IPU_MultiISA.h">
       <Filter>System\Ps2\IPU</Filter>
     </ClInclude>
     <ClInclude Include="IPU\yuv2rgb.h">
@@ -2755,6 +2776,9 @@
     <ClInclude Include="GS\GSVector8.h">
       <Filter>System\Ps2\GS</Filter>
     </ClInclude>
+    <ClInclude Include="GS\GSXXH.h">
+      <Filter>System\Ps2\GS</Filter>
+    </ClInclude>
     <ClInclude Include="GS\config.h">
       <Filter>System\Ps2\GS</Filter>
     </ClInclude>
@@ -2768,6 +2792,9 @@
       <Filter>System\Ps2\GS</Filter>
     </ClInclude>
     <ClInclude Include="GS\GSLzma.h">
+      <Filter>System\Ps2\GS</Filter>
+    </ClInclude>
+    <ClInclude Include="GS\MultiISA.h">
       <Filter>System\Ps2\GS</Filter>
     </ClInclude>
     <ClInclude Include="GS\Renderers\Common\GSFastList.h">
