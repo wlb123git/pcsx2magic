@@ -134,6 +134,8 @@ uint8_t MG_IV_NULL[8] = {0};
 
 u8 cdvdParamLength[16] = {0, 0, 0, 0, 0, 4, 11, 11, 11, 1, 255, 255, 7, 2, 11, 1};
 
+u8 temp_mechaver[4] = {0, 0, 0, 0};
+
 static __fi void SetSCMDResultSize(u8 size)
 {
 	cdvd.SCMDResultC = size;
@@ -221,7 +223,17 @@ static void cdvdGetMechaVer(u8* ver)
 				return;
 			}
 
-			u8 version[4] = {0x3, 0x6, 0x2, 0x0};
+			u8 version[4];
+			// converts 1.70 to 7 and 2.30 to 13
+			int index = ((BiosVersion >> 8) - 1) * 10 + ((BiosVersion & 0xff) / 10);
+			if ((index > 13) || (index < 0))
+				index = 13;
+
+			memcpy(version, &RomverMecha[index], 4);
+			if (BiosRegion < 8)
+				version[0] = BiosRegion;
+			// Fixme: Debug units (romver[5] == 'D') has odd minor version number so they need version[2]++
+
 			std::fwrite(version, sizeof(version), 1, fp.get());
 			FileSystem::FSeek64(fp.get(), 0, SEEK_SET);
 		}
@@ -412,7 +424,7 @@ static void cdvdWriteModelNumber(const u8* num, s32 part)
 
 static void cdvdReadRegionParams(u8* num)
 {
-	getNvmData(num, 0, 8, offsetof(NVMLayout, regparams));
+	getNvmData(num, 0, 12, offsetof(NVMLayout, regparams));
 }
 static void cdvdWriteRegionParams(const u8* num)
 {
@@ -1176,6 +1188,20 @@ void cdvdReset()
 
 	readAndDecryptKeyStore(1); // 0: dev, 1: retail, 2: proto?, 3: arcade
 	cdvd.mecha_state = MECHA_STATE_READY;
+	cdvdGetMechaVer(&temp_mechaver[0]);
+
+	// Patch the region on Deckard Slims (75k+)
+	if ((BiosVersion >= 0x214) && (temp_mechaver[1] == 6) && (temp_mechaver[2] >= 6)) // 220 bios and up, mecha >= 6.6
+	{
+		u8 RegionParams[12];
+		cdvdReadRegionParams(&RegionParams[0]);
+		if ((RegionParams[0] != 0) && (RegionParams[5] != 0))
+		{
+			eeMem->ROM[0x7ff04] = RegionParams[0];
+			eeMem->ROM[0x7ff52] = RegionParams[5];
+		}
+		Console.WriteLn("Patching ROM with PS2 region code %c, PS1 region code %c", RegionParams[0], RegionParams[5]);
+	}
 }
 
 struct Freeze_v10Compat
@@ -3027,42 +3053,131 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 			case 0x03: // Mecacon-command
 				switch (cdvd.SCMDParam[0])
 				{
-					case 0x00: // get mecha version (1:4)
+					case 0x00: // get mecha version (1:4), supported by mecha 3.9
 						SetSCMDResultSize(4);
-						cdvdGetMechaVer(&cdvd.SCMDResult[0]);
+						memcpy(cdvd.SCMDResult, &temp_mechaver[0], 4);
 						break;
-					case 0x30:
+
+					case 0x01: // get DSP version (1:3), supported by mecha 3.9
+						SetSCMDResultSize(3);
+						if ((temp_mechaver[1] == 3) && (temp_mechaver[2] == 9))
+						{
+							cdvd.SCMDResult[1] = 2;
+							cdvd.SCMDResult[2] = 1;
+						}
+						else
+						{
+							int index = ((BiosVersion >> 8) - 1) * 10 + ((BiosVersion & 0xff) / 10);
+							if ((index > 13) || (index < 0))
+								index = 13;
+							if (index == 0) // 0100, 0101
+								cdvd.SCMDResult[1] = 0;
+							else if ((index > 0) && (index < 5)) // 0110, 0120
+								cdvd.SCMDResult[1] = 1;
+							else if (index == 5) // 0150
+								cdvd.SCMDResult[1] = 2;
+							else if (index > 7) // 0170 and up
+								cdvd.SCMDResult[1] = 3;
+							else if ((temp_mechaver[1] == 3) && (temp_mechaver[2] >= 6)) // 0160 with mechacon >= 3.6
+								cdvd.SCMDResult[1] = 3;
+							else
+								cdvd.SCMDResult[1] = 2; // 0160 with mechacon < 3.6
+							cdvd.SCMDResult[2] = 0; // ??
+						}
+						cdvd.SCMDResult[0] = 0; // returns 0 on success
+						break;
+
+					case 0x30: // supported by mecha 3.9, supported by mecha 3.9
 						SetSCMDResultSize(2);
 						cdvd.SCMDResult[0] = cdvd.Status;
 						cdvd.SCMDResult[1] = (cdvd.Status & 0x1) ? 8 : 0;
 						//Console.Warning("Tray check param[1]=%02X", cdvd.Param[1]);
 						break;
+
 					case 0x44: // write console ID (9:1)
 						SetSCMDResultSize(1);
 						cdvdWriteConsoleID(&cdvd.SCMDParam[1]);
+						cdvd.SCMDResult[0] = 0; // returns 0 on success
 						break;
 
-					case 0x45: // read console ID (1:9)
-						SetSCMDResultSize(9);
-						cdvdReadConsoleID(&cdvd.SCMDResult[1]);
+					case 0x45: // read console ID (1:9), supported by mecha 3.9
+						if ((temp_mechaver[1] == 3) && (temp_mechaver[2] == 9))
+						{
+							SetSCMDResultSize(1);
+							cdvd.SCMDResult[0] = 0x80;
+						}
+						else
+						{
+							SetSCMDResultSize(9);
+							cdvdReadConsoleID(&cdvd.SCMDResult[1]);
+							cdvd.SCMDResult[0] = 0; // returns 0 on success
+						}
 						break;
+
+					// case 0x48: // supported by mecha 3.9
 
 					case 0xFD: // _sceCdReadRenewalDate (1:6) BCD
-						SetSCMDResultSize(6);
-						cdvd.SCMDResult[0] = 0;
-						cdvd.SCMDResult[1] = 0x04; //year
-						cdvd.SCMDResult[2] = 0x12; //month
-						cdvd.SCMDResult[3] = 0x10; //day
-						cdvd.SCMDResult[4] = 0x01; //hour
-						cdvd.SCMDResult[5] = 0x30; //min
+						switch (temp_mechaver[1])
+						{
+							case 0x01:
+							case 0x02:
+							case 0x03:
+								// Mechacon version prior to v5 doesnt support SCMD 03:FD command
+								SetSCMDResultSize(1);
+								cdvd.SCMDResult[0] = 0x80;
+								break;
+
+							case 0x05:
+								if (temp_mechaver[2] < 0x10)
+								{
+									SetSCMDResultSize(6);
+									memcpy(cdvd.SCMDResult, &MRenewalDate[temp_mechaver[2] >> 1], 6);
+									// 5.6 Mexico differs from other regions 5.6
+									if (((temp_mechaver[2] & 0xfe) == 6) && (temp_mechaver[0] == 7))
+										memcpy(cdvd.SCMDResult, &MRenewalDate[15], 6);
+								}
+								else
+								{
+									SetSCMDResultSize(1);
+									cdvd.SCMDResult[0] = 0x80;
+								}
+								break;
+
+							case 0x06:
+								if (temp_mechaver[2] < 0x0E)
+								{
+									SetSCMDResultSize(6);
+									memcpy(cdvd.SCMDResult, &MRenewalDate[(temp_mechaver[2] >> 1) + 8], 6);
+								}
+								else
+								{
+									SetSCMDResultSize(1);
+									cdvd.SCMDResult[0] = 0x80;
+								}
+								break;
+
+							default:
+								SetSCMDResultSize(1);
+								cdvd.SCMDResult[0] = 0x80;
+								break;
+						}
 						break;
 
 					case 0xEF: // read console temperature (1:3)
-						// This returns a fixed value of 30.5 C
-						SetSCMDResultSize(3);
-						cdvd.SCMDResult[0] = 0; // returns 0 on success
-						cdvd.SCMDResult[1] = 0x0F; // last 8 bits for integer
-						cdvd.SCMDResult[2] = 0x05; // leftmost bit for integer, other 7 bits for decimal place
+						// Mechacon version prior to v5.4 doesnt support SCMD 03:EF command
+						if ((temp_mechaver[1] < 5) || ((temp_mechaver[1] == 5) && (temp_mechaver[2] < 4)))
+						{
+							SetSCMDResultSize(1);
+							cdvd.SCMDResult[0] = 0x80;
+						}
+						else
+						{
+							// This returns a fixed value of 30.5 C
+							SetSCMDResultSize(3);
+							cdvd.SCMDResult[0] = 0; // returns 0 on success
+							cdvd.SCMDResult[1] = 0x0F; // last 8 bits for integer
+							cdvd.SCMDResult[2] = 0x05; // leftmost bit for integer, other 7 bits for decimal place
+						}
 						break;
 
 					default:
@@ -3091,7 +3206,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 					cdvd.SCMDResult[0] = cdvdCtrlTrayClose();
 				break;
 
-			case 0x08: // CdReadRTC (0:8)
+			case 0x08: // CdReadRTC (0:8), supported by mecha 3.9
 				SetSCMDResultSize(8);
 				cdvd.SCMDResult[0] = 0;
 				cdvd.SCMDResult[1] = itob(cdvd.RTC.second); //Seconds
@@ -3125,22 +3240,31 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				//memcpy((u8*)&cdvd.RTC, cdvd.Param, 7);
 				break;
 
-			case 0x0A: // sceCdReadNVM (2:3)
-				address = (cdvd.SCMDParam[0] << 8) | cdvd.SCMDParam[1];
-
-				if (address < 512)
+			case 0x0A: // sceCdReadNVM (2:3), blocked on mecha 3.9
+				if ((temp_mechaver[1] == 3) && (temp_mechaver[2] == 9))
 				{
-					SetSCMDResultSize(3);
-					cdvdReadNVM(&cdvd.SCMDResult[1], address * 2, 2);
-					// swap bytes around
-					tmp = cdvd.SCMDResult[1];
-					cdvd.SCMDResult[1] = cdvd.SCMDResult[2];
-					cdvd.SCMDResult[2] = tmp;
+					SetSCMDResultSize(1);
+					cdvd.SCMDResult[0] = 0x80;
 				}
 				else
 				{
-					SetSCMDResultSize(1);
-					cdvd.SCMDResult[0] = 0xff;
+					address = (cdvd.SCMDParam[0] << 8) | cdvd.SCMDParam[1];
+
+					if (address < 512)
+					{
+						SetSCMDResultSize(3);
+						cdvdReadNVM(&cdvd.SCMDResult[1], address * 2, 2);
+						// swap bytes around
+						tmp = cdvd.SCMDResult[1];
+						cdvd.SCMDResult[1] = cdvd.SCMDResult[2];
+						cdvd.SCMDResult[2] = tmp;
+						cdvd.SCMDResult[0] = 0; // returns 0 on success
+					}
+					else
+					{
+						SetSCMDResultSize(1);
+						cdvd.SCMDResult[0] = 0xff;
+					}
 				}
 				break;
 
@@ -3166,7 +3290,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				//			break;
 
 
-			case 0x0F: // sceCdPowerOff (0:1)- Call74 from Xcdvdman
+			case 0x0F: // sceCdPowerOff (0:1)- Call74 from Xcdvdman, supported by mecha 3.9
 				Console.WriteLn(Color_StrongBlack, "sceCdPowerOff called. Resetting VM.");
 #ifndef PCSX2_CORE
 				GetCoreThread().Reset();
@@ -3175,12 +3299,11 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 #endif
 				break;
 
-			case 0x12: // sceCdReadILinkId (0:9)
+			case 0x12: // sceCdReadILinkId (0:9), supported by mecha 3.9
 				SetSCMDResultSize(9);
 				cdvdReadILinkID(&cdvd.SCMDResult[1]);
 				if ((!cdvd.SCMDResult[3]) && (!cdvd.SCMDResult[4])) // nvm file is missing correct iLinkId, return hardcoded one
 				{
-					cdvd.SCMDResult[0] = 0x00;
 					cdvd.SCMDResult[1] = 0x00;
 					cdvd.SCMDResult[2] = 0xAC;
 					cdvd.SCMDResult[3] = 0xFF;
@@ -3190,11 +3313,13 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 					cdvd.SCMDResult[7] = 0xB9;
 					cdvd.SCMDResult[8] = 0x86;
 				}
+				cdvd.SCMDResult[0] = 0; // returns 0 on success
 				break;
 
 			case 0x13: // sceCdWriteILinkID (8:1)
 				SetSCMDResultSize(1);
 				cdvdWriteILinkID(&cdvd.SCMDParam[1]);
+				cdvd.SCMDResult[0] = 0; // returns 0 on success
 				break;
 
 			case 0x14: // CdCtrlAudioDigitalOut (1:1)
@@ -3214,14 +3339,16 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				cdvd.SCMDResult[0] = 0;
 				break;
 
-			case 0x17: // CdReadModelNumber (1:9) - from xcdvdman
+			case 0x17: // CdReadModelNumber (1:9) - from xcdvdman, supported by mecha 3.9
 				SetSCMDResultSize(9);
 				cdvdReadModelNumber(&cdvd.SCMDResult[1], cdvd.SCMDParam[0]);
+				cdvd.SCMDResult[0] = 0; // returns 0 on success
 				break;
 
 			case 0x18: // CdWriteModelNumber (9:1) - from xcdvdman
 				SetSCMDResultSize(1);
 				cdvdWriteModelNumber(&cdvd.SCMDParam[1], cdvd.SCMDParam[0]);
+				cdvd.SCMDResult[0] = 0; // returns 0 on success
 				break;
 
 				//		case 0x19: // sceCdForbidRead (0:1) - from xcdvdman
@@ -3229,7 +3356,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 
 			case 0x1A: // sceCdBootCertify (4:1)//(4:16 in psx?)
 				SetSCMDResultSize(1); //on input there are 4 bytes: 1;?10;J;C for 18000; 1;60;E;C for 39002 from ROMVER
-				cdvd.SCMDResult[0] = 1; //i guess that means okay
+				cdvd.SCMDResult[0] = 1; // 0 complete ; 1 busy ; 0x80 error
 				break;
 
 			case 0x1B: // sceCdCancelPOffRdy (0:1) - Call73 from Xcdvdman (1:1)
@@ -3245,23 +3372,42 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				//		case 0x1D: // cdvdman_call116 (0:5) - In V10 Bios
 				//			break;
 
-			case 0x1E: // sceRemote2Read (0:5) - // 00 14 AA BB CC -> remote key code
-				SetSCMDResultSize(5);
-				cdvd.SCMDResult[0] = 0x00;
-				cdvd.SCMDResult[1] = 0x14;
-				cdvd.SCMDResult[2] = 0x00;
-				cdvd.SCMDResult[3] = 0x00;
-				cdvd.SCMDResult[4] = 0x00;
+			case 0x1E: // sceRemote2Read (0:5) - // 00 14 AA BB CC -> remote key code, supported by mecha 3.9
+				// mechacon prior to v3.9 doesnt support sircs control
+				if ((temp_mechaver[1] > 4) || ((temp_mechaver[1] == 3) && (temp_mechaver[2] == 9)))
+				{
+					SetSCMDResultSize(5);
+					cdvd.SCMDResult[0] = 0x00;
+					cdvd.SCMDResult[1] = 0x14;
+					cdvd.SCMDResult[2] = 0x00;
+					cdvd.SCMDResult[3] = 0x00;
+					cdvd.SCMDResult[4] = 0x00;
+				}
+				else
+				{
+					SetSCMDResultSize(1);
+					cdvd.SCMDResult[0] = 0x80;
+				}
 				break;
 
 				//		case 0x1F: // sceRemote2_7 (2:1) - cdvdman_call117
+				// mechacon prior to v5 doesnt support sircs control
 				//			break;
 
 			case 0x20: // sceRemote2_6 (0:3)	// 00 01 00
-				SetSCMDResultSize(3);
-				cdvd.SCMDResult[0] = 0x00;
-				cdvd.SCMDResult[1] = 0x01;
-				cdvd.SCMDResult[2] = 0x00;
+				// mechacon prior to v5 doesnt support sircs control
+				if (temp_mechaver[1] < 5)
+				{
+					SetSCMDResultSize(1);
+					cdvd.SCMDResult[0] = 0x80;
+				}
+				else
+				{
+					SetSCMDResultSize(3);
+					cdvd.SCMDResult[0] = 0x00;
+					cdvd.SCMDResult[1] = 0x01;
+					cdvd.SCMDResult[2] = 0x00;
+				}
 				break;
 
 				//		case 0x21: // sceCdWriteWakeUpTime (8:1)
@@ -3282,9 +3428,18 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				break;
 
 			case 0x24: // sceCdRCBypassCtrl (1:1) - In V10 Bios
-				// FIXME: because PRId<0x23, the bit 0 of sio2 don't get updated 0xBF808284
-				SetSCMDResultSize(1);
-				cdvd.SCMDResult[0] = 0;
+				// mechacon prior to v5 doesnt support sircs control
+				if (temp_mechaver[1] < 5)
+				{
+					SetSCMDResultSize(1);
+					cdvd.SCMDResult[0] = 0x80;
+				}
+				else
+				{
+					// FIXME: because PRId<0x23, the bit 0 of sio2 don't get updated 0xBF808284
+					SetSCMDResultSize(1);
+					cdvd.SCMDResult[0] = 0;
+				}
 				break;
 
 				//		case 0x25: // cdvdman_call120 (1:1) - In V10 Bios
@@ -3325,10 +3480,10 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 
 				//		case 0x2D: //sceCdXLEDCtl (2:2)
 				//			break;
-
+				// mechacon >= 5.6
 				//		case 0x2E: //sceCdBuzzerCtl (0:1)
 				//			break;
-
+				// mechacon >= 5.6
 				//		case 0x2F: //cdvdman_call167 (16:1)
 				//			break;
 
@@ -3350,42 +3505,73 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				//			break;
 
 			case 0x36: //cdvdman_call189 [__sceCdReadRegionParams - made up name] (0:15) i think it is 16, not 15
-				SetSCMDResultSize(15);
+				// Mechacon version prior to v6.0 doesnt support SCMD 36 command
+				// except of 5.6 Mexico that has SCMD 36 command partially implemented
+				if (temp_mechaver[1] < 6)
+				{
+					if (!((temp_mechaver[0] == 7) && (temp_mechaver[1] == 5) && ((temp_mechaver[2] & 0xfe) == 6)))
+					{
+						SetSCMDResultSize(1);
+						cdvd.SCMDResult[0] = 0x80;
+					}
+					else
+					{
+						SetSCMDResultSize(3);
+						cdvd.SCMDResult[0] = 0;
+						cdvd.SCMDResult[1] = 1 << temp_mechaver[0]; //encryption zone; see offset 0x1C in encrypted headers
+						//////////////////////////////////////////
+						cdvd.SCMDResult[2] = 0; //??
+						DevCon.WriteLn("REGION PARAMS = %s", mg_zones[temp_mechaver[0] & 7]);
+					}
+				}
+				else
+				{
+					SetSCMDResultSize(15);
 
-				cdvdGetMechaVer(&cdvd.SCMDResult[1]);
-				cdvdReadRegionParams(&cdvd.SCMDResult[3]); //size==8
-				DevCon.WriteLn("REGION PARAMS = %s %s", mg_zones[cdvd.SCMDResult[1] & 7], &cdvd.SCMDResult[3]);
-				cdvd.SCMDResult[1] = 1 << cdvd.SCMDResult[1]; //encryption zone; see offset 0x1C in encrypted headers
-				//////////////////////////////////////////
-				cdvd.SCMDResult[2] = 0; //??
-				//			cdvd.Result[3] == ROMVER[4] == *0xBFC7FF04
-				//			cdvd.Result[4] == OSDVER[4] == CAP			Jjpn, Aeng, Eeng, Heng, Reng, Csch, Kkor?
-				//			cdvd.Result[5] == OSDVER[5] == small
-				//			cdvd.Result[6] == OSDVER[6] == small
-				//			cdvd.Result[7] == OSDVER[7] == small
-				//			cdvd.Result[8] == VERSTR[0x22] == *0xBFC7FF52
-				//			cdvd.Result[9] == DVDID						J U O E A R C M
-				//			cdvd.Result[10]== 0;					//??
-				cdvd.SCMDResult[11] = 0; //??
-				cdvd.SCMDResult[12] = 0; //??
-				//////////////////////////////////////////
-				cdvd.SCMDResult[13] = 0; //0xFF - 77001
-				cdvd.SCMDResult[14] = 0; //??
+					cdvd.SCMDResult[0] = 0;
+					cdvd.SCMDResult[1] = 1 << temp_mechaver[0]; //encryption zone; see offset 0x1C in encrypted headers
+					//////////////////////////////////////////
+					cdvd.SCMDResult[2] = 0; //??
+					cdvdReadRegionParams(&cdvd.SCMDResult[3]); //size==12
+					DevCon.WriteLn("REGION PARAMS = %s %s", mg_zones[temp_mechaver[0] & 7], &cdvd.SCMDResult[3]);
+					//			cdvd.SCMDResult[3] == ROMVER[4] == *0xBFC7FF04		J A E H C
+					//			cdvd.SCMDResult[4] == OSDVER[4] == CAP				Jjpn, Aeng, Eeng, Heng, Reng, Csch, Kkor, Htch, Aspa
+					//			cdvd.SCMDResult[5] == OSDVER[5] == small
+					//			cdvd.SCMDResult[6] == OSDVER[6] == small
+					//			cdvd.SCMDResult[7] == OSDVER[7] == small
+					//			cdvd.SCMDResult[8] == VERSTR[0x22] == *0xBFC7FF52	J A E
+					//			cdvd.SCMDResult[9] == DVDID							J U O E A R C M
+					//			cdvd.SCMDResult[10]== 0; //??
+					//			cdvd.SCMDResult[11] = 0; //??
+					//			cdvd.SCMDResult[12] = 0; //??
+					//////////////////////////////////////////
+					cdvd.SCMDResult[13] = 0xFF; //0xFF - 77001, 70003
+					//			cdvd.SCMDResult[14] = 0; //??
+				}
 				break;
 
 			case 0x37: //called from EECONF [sceCdReadMAC - made up name] (0:9)
 				SetSCMDResultSize(9);
 				cdvdReadMAC(&cdvd.SCMDResult[1]);
+				cdvd.SCMDResult[0] = 0; // returns 0 on success
 				break;
 
 			case 0x38: //used to fix the MAC back after accidentally trashed it :D [sceCdWriteMAC - made up name] (8:1)
 				SetSCMDResultSize(1);
 				cdvdWriteMAC(&cdvd.SCMDParam[0]);
+				cdvd.SCMDResult[0] = 0; // returns 0 on success
 				break;
 
 			case 0x3E: //[__sceCdWriteRegionParams - made up name] (15:1) [Florin: hum, i was expecting 14:1]
 				SetSCMDResultSize(1);
-				cdvdWriteRegionParams(&cdvd.SCMDParam[2]);
+				// Mechacon version prior to v6.6 doesnt support SCMD 3E command
+				if ((temp_mechaver[1] < 6) || ((temp_mechaver[1] == 6) && (temp_mechaver[2] < 6)))
+					cdvd.SCMDResult[0] = 0x80;
+				else
+				{
+					cdvdWriteRegionParams(&cdvd.SCMDParam[2]);
+					cdvd.SCMDResult[0] = 0; // returns 0 on success
+				}
 				break;
 
 			case 0x40: // CdOpenConfig (3:1)
@@ -3397,7 +3583,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				cdvd.SCMDResult[0] = 0;
 				break;
 
-			case 0x41: // CdReadConfig (0:16)
+			case 0x41: // CdReadConfig (0:16), supported by mecha 3.9
 				SetSCMDResultSize(16);
 				cdvdReadConfig(&cdvd.SCMDResult[0]);
 				break;
@@ -3405,6 +3591,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 			case 0x42: // CdWriteConfig (16:1)
 				SetSCMDResultSize(1);
 				cdvdWriteConfig(&cdvd.SCMDParam[0]);
+				cdvd.SCMDResult[0] = 0; // returns 0 on success
 				break;
 
 			case 0x43: // CdCloseConfig (0:1)
@@ -3483,7 +3670,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				}
 				break;
 
-			case 0x84: // secrman: __mechacon_auth_0x84
+			case 0x84: // secrman: __mechacon_auth_0x84, supported by mecha 3.9
 				if (cdvd.mecha_state == MECHA_STATE_CARD_CHALLANGE_GENERATED && cdvd.SCMDParamC == 0)
 				{
 					SetSCMDResultSize(1 + 8 + 4);
@@ -3500,7 +3687,7 @@ static void cdvdWrite16(u8 rt) // SCOMMAND
 				}
 				break;
 
-			case 0x85: // secrman: __mechacon_auth_0x85
+			case 0x85: // secrman: __mechacon_auth_0x85, supported by mecha 3.9
 				if (cdvd.mecha_state == MECHA_STATE_CARD_CHALLENGE12_SENT && cdvd.SCMDParamC == 0)
 				{
 					SetSCMDResultSize(1 + 4 + 8);
