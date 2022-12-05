@@ -5179,6 +5179,8 @@ SCKA-20090:
 SCKA-20092:
   name: "K-1 World Grand Prix 2006"
   region: "NTSC-K"
+  gsHWFixes:
+    deinterlace: 9 # Game requires AdaptiveBFF deinterlacing when auto.
   speedHacks:
     InstantVU1SpeedHack: 0 # Fixes random black frames from happening when in a fight session.
     MTVUSpeedHack: 0
@@ -5225,7 +5227,7 @@ SCKA-20109:
   name: "Persona 3 FES [Independent Starting Version]"
   region: "NTSC-K"
   gsHWFixes:
-    mipmap: 1
+    mipmap: 2 # Fixes flashing windows.
   memcardFilters:
     - "SCKA-20109"
     - "SCKA-20099"
@@ -21681,7 +21683,7 @@ SLES-55354:
   name: "Shin Megami Tensei - Persona 3 FES"
   region: "PAL-E"
   gsHWFixes:
-    mipmap: 1
+    mipmap: 2 # Fixes flashing windows.
   memcardFilters:
     - "SLES-55354"
     - "SLES-55018"
@@ -26264,6 +26266,8 @@ SLPM-62623:
   name: "Elemental Gerad"
   region: "NTSC-J"
   compat: 5
+  gsHWFixes:
+    deinterlace: 9 # Game requires AdaptiveBFF deinterlacing when auto.
   gameFixes:
     - XGKickHack # Fixes chocolate coloured characters.
   patches:
@@ -32756,7 +32760,7 @@ SLPM-66689:
   name: "Persona 3 FES [Append Edition]"
   region: "NTSC-J"
   gsHWFixes:
-    mipmap: 1
+    mipmap: 2 # Fixes flashing windows.
   memcardFilters:
     - "SLPM-66445"
     - "SLPM-66689"
@@ -32765,7 +32769,7 @@ SLPM-66690:
   name: "Persona 3 FES [Independent Starting Version]"
   region: "NTSC-J"
   gsHWFixes:
-    mipmap: 1
+    mipmap: 2 # Fixes flashing windows.
   memcardFilters:
     - "SLPM-66445"
     - "SLPM-66689"
@@ -34333,7 +34337,7 @@ SLPM-74277:
   region: "NTSC-J"
   compat: 5
   gsHWFixes:
-    mipmap: 1
+    mipmap: 2 # Fixes flashing windows.
 SLPM-74278:
   name: "Persona 4 [PlayStation 2 The Best]"
   region: "NTSC-J"
@@ -38286,6 +38290,8 @@ SLPS-25710:
   name: "K-1 World Grand Prix 2006"
   region: "NTSC-J"
   compat: 4
+  gsHWFixes:
+    deinterlace: 9 # Game requires AdaptiveBFF deinterlacing when auto.
   speedHacks:
     InstantVU1SpeedHack: 0 # Fixes random black frames from happening when in a fight session.
     MTVUSpeedHack: 0
@@ -47393,7 +47399,7 @@ SLUS-21621:
   region: "NTSC-U"
   compat: 5
   gsHWFixes:
-    mipmap: 1
+    mipmap: 2 # Fixes flashing windows.
   memcardFilters:
     - "SLUS-21621"
     - "SLUS-21569"
@@ -49023,7 +49029,7 @@ SLUS-28068:
   name: "Shin Megami Tensei - Persona 3 FES [Trade Demo]"
   region: "NTSC-U"
   gsHWFixes:
-    mipmap: 1
+    mipmap: 2 # Fixes flashing windows.
 SLUS-28069:
   name: "Shin Megami Tensei - Persona 4 [Trade Demo]"
   region: "NTSC-U"
