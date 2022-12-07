@@ -1012,6 +1012,7 @@ struct Pcsx2Config
 			RichPresence : 1,
 			ChallengeMode : 1,
 			Leaderboards : 1,
+			Notifications : 1,
 			SoundEffects : 1,
 			PrimedIndicators : 1;
 		BITFIELD_END

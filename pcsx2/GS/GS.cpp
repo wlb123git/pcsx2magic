@@ -700,7 +700,7 @@ void GSgetStats(std::string& info)
 		{
 			info = StringUtil::StdStringFromFormat("%s HW | HC: %d MB | %d P | %d D | %d DC | %d B | %d RB | %d TC | %d TU",
 				api_name,
-				(int)std::ceil(GSRendererHW::GetInstance()->GetTextureCache()->GetHashCacheMemoryUsage() / 1048576.0f),
+				(int)std::ceil(GSRendererHW::GetInstance()->GetTextureCache()->GetTotalHashCacheMemoryUsage() / 1048576.0f),
 				(int)pm.Get(GSPerfMon::Prim),
 				(int)pm.Get(GSPerfMon::Draw),
 				(int)std::ceil(pm.Get(GSPerfMon::DrawCalls)),
@@ -1471,6 +1471,7 @@ void GSApp::Init()
 	m_default_configuration["OsdShowIndicators"]                          = "1";
 	m_default_configuration["OsdShowSettings"]                            = "0";
 	m_default_configuration["OsdShowInputs"]                              = "0";
+	m_default_configuration["OsdShowFrameTimes"]                          = "0";
 	m_default_configuration["OsdScale"]                                   = "100";
 	m_default_configuration["override_GL_ARB_copy_image"]                 = "-1";
 	m_default_configuration["override_GL_ARB_clip_control"]               = "-1";

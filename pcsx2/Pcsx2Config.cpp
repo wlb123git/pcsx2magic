@@ -1033,6 +1033,7 @@ Pcsx2Config::AchievementsOptions::AchievementsOptions()
 	RichPresence = true;
 	ChallengeMode = false;
 	Leaderboards = true;
+	Notifications = true;
 	SoundEffects = true;
 	PrimedIndicators = true;
 }
@@ -1047,6 +1048,7 @@ void Pcsx2Config::AchievementsOptions::LoadSave(SettingsWrapper& wrap)
 	SettingsWrapBitBool(RichPresence);
 	SettingsWrapBitBool(ChallengeMode);
 	SettingsWrapBitBool(Leaderboards);
+	SettingsWrapBitBool(Notifications);
 	SettingsWrapBitBool(SoundEffects);
 	SettingsWrapBitBool(PrimedIndicators);
 }
