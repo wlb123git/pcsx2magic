@@ -1443,7 +1443,6 @@ void VMManager::SetLimiterMode(LimiterModeType type)
 
 	EmuConfig.LimiterMode = type;
 	gsUpdateFrequency(EmuConfig);
-	GetMTGS().UpdateVSyncMode();
 }
 
 void VMManager::FrameAdvance(u32 num_frames /*= 1*/)
@@ -1685,7 +1684,6 @@ void VMManager::CheckForFramerateConfigChanges(const Pcsx2Config& old_config)
 	gsUpdateFrequency(EmuConfig);
 	UpdateVSyncRate();
 	frameLimitReset();
-	GetMTGS().UpdateVSyncMode();
 }
 
 void VMManager::CheckForPatchConfigChanges(const Pcsx2Config& old_config)
