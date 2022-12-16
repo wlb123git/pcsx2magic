@@ -279,11 +279,20 @@ bool VMManager::Internal::InitializeGlobals()
 		return false;
 	}
 
+	if (!SPU2init())
+	{
+		Host::ReportErrorAsync("Error", "Failed to initialize SPU2 (SPU2init()).");
+		return false;
+	}
+
 	return true;
 }
 
 void VMManager::Internal::ReleaseGlobals()
 {
+	SPU2shutdown();
+	GSshutdown();
+
 #ifdef _WIN32
 	CoUninitialize();
 #endif
@@ -384,6 +393,23 @@ std::string VMManager::GetGameSettingsPath(const std::string_view& game_serial, 
 			   Path::Combine(EmuFolders::GameSettings, fmt::format("{}_{:08X}.ini", sanitized_serial, game_crc));
 }
 
+std::string VMManager::GetDiscOverrideFromGameSettings(const std::string& elf_path)
+{
+	std::string iso_path;
+	if (const u32 crc = cdvdGetElfCRC(elf_path); crc != 0)
+	{
+		INISettingsInterface si(GetGameSettingsPath(std::string_view(), crc));
+		if (si.Load())
+		{
+			iso_path = si.GetStringValue("EmuCore", "DiscPath");
+			if (!iso_path.empty())
+				Console.WriteLn(fmt::format("Disc override for ELF at '{}' is '{}'", elf_path, iso_path));
+		}
+	}
+
+	return iso_path;
+}
+
 std::string VMManager::GetInputProfilePath(const std::string_view& name)
 {
 	return Path::Combine(EmuFolders::InputProfiles, fmt::format("{}.ini", name));
@@ -435,12 +461,20 @@ void VMManager::RequestDisplaySize(float scale /*= 0.0f*/)
 	Host::RequestResizeHostDisplay(iwidth, iheight);
 }
 
+std::string VMManager::GetSerialForGameSettings()
+{
+	// If we're running an ELF, we don't want to use the serial for any ISO override
+	// for game settings, since the game settings is where we define the override.
+	std::unique_lock lock(s_info_mutex);
+	return s_elf_override.empty() ? std::string(s_game_serial) : std::string();
+}
+
 bool VMManager::UpdateGameSettingsLayer()
 {
 	std::unique_ptr<INISettingsInterface> new_interface;
 	if (s_game_crc != 0 && Host::GetBaseBoolSettingValue("EmuCore", "EnablePerGameSettings", true))
 	{
-		std::string filename(GetGameSettingsPath(s_game_serial.c_str(), s_game_crc));
+		std::string filename(GetGameSettingsPath(GetSerialForGameSettings(), s_game_crc));
 		if (!FileSystem::FileExists(filename.c_str()))
 		{
 			// try the legacy format (crc.ini)
@@ -702,7 +736,11 @@ void VMManager::UpdateRunningGame(bool resetting, bool game_starting)
 
 		if (const GameDatabaseSchema::GameEntry* game = GameDatabase::findGame(s_game_serial))
 		{
-			s_game_name = game->name;
+			if (!s_elf_override.empty())
+				s_game_name = Path::GetFileTitle(FileSystem::GetDisplayNameFromPath(s_elf_override));
+			else
+				s_game_name = game->name;
+
 			memcardFilters = game->memcardFiltersAsString();
 		}
 		else
@@ -739,7 +777,7 @@ void VMManager::UpdateRunningGame(bool resetting, bool game_starting)
 
 	GetMTGS().SendGameCRC(new_crc);
 
-	Host::OnGameChanged(s_disc_path, s_game_serial, s_game_name, s_game_crc);
+	Host::OnGameChanged(s_disc_path, s_elf_override, s_game_serial, s_game_name, s_game_crc);
 
 #if 0
 	// TODO: Enable this when the debugger is added to Qt, and it's active. Otherwise, this is just a waste of time.
@@ -778,8 +816,20 @@ bool VMManager::AutoDetectSource(const std::string& filename)
 		}
 		else if (IsElfFileName(display_name))
 		{
-			// alternative way of booting an elf, change the elf override, and use no disc.
-			CDVDsys_ChangeSource(CDVD_SourceType::NoDisc);
+			// alternative way of booting an elf, change the elf override, and (optionally) use the disc
+			// specified in the game settings.
+			std::string disc_path(GetDiscOverrideFromGameSettings(filename));
+			if (!disc_path.empty())
+			{
+				CDVDsys_SetFile(CDVD_SourceType::Iso, disc_path);
+				CDVDsys_ChangeSource(CDVD_SourceType::Iso);
+				s_disc_path = std::move(disc_path);
+			}
+			else
+			{
+				CDVDsys_ChangeSource(CDVD_SourceType::NoDisc);
+			}
+
 			s_elf_override = filename;
 			return true;
 		}
@@ -963,16 +1013,12 @@ bool VMManager::Initialize(VMBootParameters boot_params)
 	};
 
 	Console.WriteLn("Opening SPU2...");
-	if (SPU2init(false) != 0 || SPU2open() != 0)
+	if (!SPU2open())
 	{
 		Host::ReportErrorAsync("Startup Error", "Failed to initialize SPU2.");
-		SPU2shutdown();
 		return false;
 	}
-	ScopedGuard close_spu2 = []() {
-		SPU2close();
-		SPU2shutdown();
-	};
+	ScopedGuard close_spu2(&SPU2close);
 
 	Console.WriteLn("Opening PAD...");
 	if (PADinit() != 0 || PADopen(g_host_display->GetWindowInfo()) != 0)
@@ -1100,11 +1146,12 @@ void VMManager::Shutdown(bool save_resume_state)
 
 		std::unique_lock lock(s_info_mutex);
 		s_disc_path.clear();
+		s_elf_override.clear();
 		s_game_crc = 0;
 		s_patches_crc = 0;
 		s_game_serial.clear();
 		s_game_name.clear();
-		Host::OnGameChanged(s_disc_path, s_game_serial, s_game_name, 0);
+		Host::OnGameChanged(s_disc_path, s_elf_override, s_game_serial, s_game_name, 0);
 	}
 	s_active_game_fixes = 0;
 	s_active_widescreen_patches = 0;
@@ -1144,10 +1191,8 @@ void VMManager::Shutdown(bool save_resume_state)
 	}
 
 	USBshutdown();
-	SPU2shutdown();
 	PADshutdown();
 	DEV9shutdown();
-	GSshutdown();
 
 	s_state.store(VMState::Shutdown, std::memory_order_release);
 	Host::OnVMDestroyed();
@@ -1723,9 +1768,10 @@ void VMManager::CheckForSPU2ConfigChanges(const Pcsx2Config& old_config)
 		return;
 	}
 
+	const bool psxmode = SPU2IsRunningPSXMode();
+
 	SPU2close();
-	SPU2shutdown();
-	if (SPU2init(true) != 0 || SPU2open() != 0)
+	if (!SPU2open(psxmode ? PS2Modes::PSX : PS2Modes::PS2))
 	{
 		Console.Error("(CheckForSPU2ConfigChanges) Failed to reopen SPU2, we'll probably crash :(");
 		return;

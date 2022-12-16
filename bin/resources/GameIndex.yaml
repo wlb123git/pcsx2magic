@@ -581,6 +581,7 @@ SCAJ-20020:
     eeClampMode: 3 # Characters are visible in-game.
   gsHWFixes:
     texturePreloading: 1 # Performs better with partial preload because it is slow on locations outside gameplay foremost.
+    mergeSprite: 1 # Fixes misaligned white lines.
 SCAJ-20021:
   name: "Metal Slug 3"
   region: "NTSC-Unk"
@@ -1584,7 +1585,6 @@ SCAJ-30010:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SCAJ-30011:
   name: "God of War II"
@@ -2986,7 +2986,7 @@ SCES-50602:
   name: "Monsters Inc."
   region: "PAL-Unk"
 SCES-50603:
-  name: "Monstruos, S.A. - La Isla de los Sustos"
+  name: "Monstruos, S.A. - Isla de los sustos"
   region: "PAL-S"
 SCES-50604:
   name: "Monsters, Inc - Skrämmarön"
@@ -3272,7 +3272,6 @@ SCES-51533:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SCES-51578:
   name: "Network Access Disc [v1.03 - v6.00]"
@@ -3739,7 +3738,6 @@ SCES-53133:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SCES-53178:
   name: "SingStar Pop"
@@ -4013,7 +4011,7 @@ SCES-53883:
   gameFixes:
     - EETimingHack # Fixes freezes.
 SCES-53884:
-  name: "Buzz! The Big Quiz"
+  name: "Buzz! El GRAN Reto"
   region: "PAL-S"
   compat: 2
   gameFixes:
@@ -4167,7 +4165,7 @@ SCES-54261:
   name: "Buzz! The Sports Quiz"
   region: "PAL-I"
 SCES-54262:
-  name: "Buzz! The Sports Quiz"
+  name: "Buzz! - El Gran Concurso de Deportes"
   region: "PAL-S"
 SCES-54263:
   name: "Buzz! The Sports Quiz"
@@ -4504,7 +4502,7 @@ SCES-55255:
   name: "SingStar Singalong with Disney"
   region: "PAL-E"
 SCES-55256:
-  name: "SingStar Canciones Disney"
+  name: "SingStar canciones Disney"
   region: "PAL-S"
 SCES-55257:
   name: "SingStar - Chansons Magiques de Disney"
@@ -4603,7 +4601,7 @@ SCES-55521:
   name: "SingStar SuomiPop"
   region: "PAL-FI"
 SCES-55527:
-  name: "SingStar 2009"
+  name: "SingStar Pop 2009"
   region: "PAL-S"
 SCES-55535:
   name: "Desi Adda - Games of India"
@@ -5272,7 +5270,6 @@ SCKA-30002:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SCKA-30006:
   name: "God of War 2"
@@ -7857,7 +7854,6 @@ SCUS-97399:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SCUS-97400:
   name: "EyeToy - Groove"
@@ -8147,7 +8143,6 @@ SCUS-97467:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SCUS-97468:
   name: "EyeToy - Play 2"
@@ -9853,17 +9848,17 @@ SLES-50225:
   name: "Escape from Monkey Island"
   region: "PAL-E"
 SLES-50226:
-  name: "Escape from Monkey Island 4"
+  name: "Escape from Monkey Island"
   region: "PAL-F"
 SLES-50227:
   name: "Flucht von Monkey Island"
   region: "PAL-G"
   compat: 5
 SLES-50228:
-  name: "Escape from Monkey Island 4"
+  name: "Fuga da Monkey Island"
   region: "PAL-I"
 SLES-50229:
-  name: "Monkey Island 4"
+  name: "Fuga de Monkey Island, La"
   region: "PAL-S"
 SLES-50230:
   name: "Lotus Challenge"
@@ -10901,11 +10896,15 @@ SLES-50771:
   name: "Blood Omen 2 - Legend of Kain"
   region: "PAL-E"
   compat: 5
+  roundModes:
+    eeRoundMode: 0 # Fixes pathing.
   gsHWFixes:
     mipmap: 1 # Fixes glitching textures.
 SLES-50772:
   name: "Blood Omen 2 - Legend of Kain"
   region: "PAL-M3"
+  roundModes:
+    eeRoundMode: 0 # Fixes pathing.
   gsHWFixes:
     mipmap: 1 # Fixes glitching textures.
 SLES-50773:
@@ -11044,6 +11043,8 @@ SLES-50814:
 SLES-50815:
   name: "Blood Omen 2 - Legend of Kain"
   region: "PAL-G"
+  roundModes:
+    eeRoundMode: 0 # Fixes pathing.
   gsHWFixes:
     mipmap: 1 # Fixes glitching textures.
 SLES-50816:
@@ -11136,14 +11137,14 @@ SLES-50836:
   gsHWFixes:
     textureInsideRT: 1
 SLES-50837:
-  name: "Indiana Jones and The Emperor's Tomb"
+  name: "Indiana Jones et le Tombeau de L'Empereur"
   region: "PAL-F"
   gameFixes:
     - EETimingHack # For texture flicker.
   gsHWFixes:
     textureInsideRT: 1
 SLES-50838:
-  name: "Indiana Jones and The Emperor's Tomb"
+  name: "Indiana Jones und die Legende der Kaisergruft"
   region: "PAL-G"
   compat: 5
   gameFixes:
@@ -11151,14 +11152,14 @@ SLES-50838:
   gsHWFixes:
     textureInsideRT: 1
 SLES-50839:
-  name: "Indiana Jones and The Emperor's Tomb"
+  name: "Indiana Jones e la Tomba dell'Imperatore"
   region: "PAL-I"
   gameFixes:
     - EETimingHack # For texture flicker.
   gsHWFixes:
     textureInsideRT: 1
 SLES-50840:
-  name: "Indiana Jones and The Emperor's Tomb"
+  name: "Indiana Jones y la Tumba del Emperador"
   region: "PAL-S"
   gameFixes:
     - EETimingHack # For texture flicker.
@@ -11514,7 +11515,7 @@ SLES-51026:
   name: "Football Manager Campionato 2003"
   region: "PAL-I"
 SLES-51027:
-  name: "Mánager de Liga 2003"
+  name: "Manager de Liga 2003"
   region: "PAL-S"
 SLES-51038:
   name: "MX Superfly featuring Ricky Carmichael"
@@ -11873,7 +11874,7 @@ SLES-51194:
     mipmap: 1
     cpuFramebufferConversion: 1 # Fixes right side of the screen from garbage textures.
 SLES-51195:
-  name: "Harry Potter y La Camara Secreta"
+  name: "Harry Potter y la Cámara Secreta"
   region: "PAL-S"
   gameFixes:
     - EETimingHack # Fixes flickering textures.
@@ -12081,17 +12082,17 @@ SLES-51253:
   clampModes:
     vuClampMode: 3 # Fix white shiny weapons.
 SLES-51254:
-  name: "Der Herr der Ringe - Die Zwei Tuerme"
+  name: "Herr der Ringe, Der - Die Zwei Türme"
   region: "PAL-G"
   clampModes:
     vuClampMode: 3 # Fix white shiny weapons.
 SLES-51255:
-  name: "Lord of the Rings, The - The Two Towers"
+  name: "Signore Degli Anelli, Il - Le Due Torri"
   region: "PAL-I"
   clampModes:
     vuClampMode: 3 # Fix white shiny weapons.
 SLES-51256:
-  name: "El Senor de Los Anillos - Las Dos Torres"
+  name: "Señor de Los Anillos, El - Las Dos Torres"
   region: "PAL-S"
   compat: 5
   clampModes:
@@ -12328,13 +12329,13 @@ SLES-51358:
   region: "PAL-E"
   compat: 5
 SLES-51360:
-  name: "Simpsons Skateboarding"
+  name: "Simpsons Skateboarding, The"
   region: "PAL-I"
 SLES-51361:
-  name: "Simpsons Skateboarding"
+  name: "Simpsons Skateboarding, The"
   region: "PAL-S"
 SLES-51362:
-  name: "Simpsons Skateboarding"
+  name: "Simpsons Skateboarding, The"
   region: "PAL-G"
 SLES-51363:
   name: "Music 3000"
@@ -12532,7 +12533,7 @@ SLES-51460:
   name: "Football Manager 2004"
   region: "PAL-I"
 SLES-51461:
-  name: "Football Manager 2004"
+  name: "Manager de Liga 2004"
   region: "PAL-S"
 SLES-51462:
   name: "Shrek Super Party"
@@ -12840,7 +12841,7 @@ SLES-51665:
   name: "Dynasty Warriors 4"
   region: "PAL-S"
 SLES-51666:
-  name: "Piglet's Big Game"
+  name: "Piglet - El Gran Juego de Disney"
   region: "PAL-S"
 SLES-51667:
   name: "Piglet's Big Game"
@@ -13270,7 +13271,7 @@ SLES-51853:
   roundModes:
     vuRoundMode: 0 # Crashes without.
 SLES-51854:
-  name: "Tony Hawk Underground"
+  name: "Tony Hawk's Underground"
   region: "PAL-S"
   roundModes:
     vuRoundMode: 0 # Crashes without.
@@ -13280,6 +13281,9 @@ SLES-51855:
 SLES-51856:
   name: "Monster Attack"
   region: "PAL-E"
+  gsHWFixes:
+    mipmap: 2 # Improves distant textures.
+    trilinearFiltering: 1 # Smooths high frequency textures on distant ground.
 SLES-51859:
   name: "Billiards Xciting"
   region: "PAL-E"
@@ -13675,16 +13679,16 @@ SLES-52017:
   region: "PAL-M5"
   compat: 5
 SLES-52018:
-  name: "Der Herr der Ringe, Die Rueckkehr des Koenigs"
+  name: "Herr der Ringe, Der - Die Rückkehr des Königs"
   region: "PAL-G"
 SLES-52019:
-  name: "Lord of the Rings, The - Return of the King"
+  name: "Seigneur des Anneaux, Le - Le Retour du roi"
   region: "PAL-F"
 SLES-52020:
-  name: "Lord of the Rings, The - The Return of the King"
+  name: "Señor de Los Anillos, El - El Retorno del Rey"
   region: "PAL-S"
 SLES-52021:
-  name: "Lord of the Rings, The - The Return of the King"
+  name: "Signore degli Anelli, Il - Il Ritorno del Re"
   region: "PAL-I"
 SLES-52022:
   name: "Total Club Manager 2004"
@@ -13716,11 +13720,11 @@ SLES-52036:
   region: "PAL-E"
   compat: 5
 SLES-52038:
-  name: "Terminator 3 - Rise of the Machines"
+  name: "Terminator 3 - Rebellion der Maschinen"
   region: "PAL-G"
 SLES-52039:
-  name: "Terminator 3 - La Rebelión de las Máquinas"
-  region: "PAL-S"
+  name: "Terminator 3 - Rise Of The Machines"
+  region: "PAL-IS"
 SLES-52041:
   name: "Detonator"
   region: "PAL-E"
@@ -14159,7 +14163,7 @@ SLES-52284:
   name: "Deadly Skies III"
   region: "PAL-M5"
 SLES-52286:
-  name: "Tak and The Power of JuJu"
+  name: "Tak y el Poder Juju"
   region: "PAL-S"
   compat: 5
 SLES-52287:
@@ -14224,6 +14228,7 @@ SLES-52322:
     eeClampMode: 3 # Characters are visible in-game.
   gsHWFixes:
     texturePreloading: 1 # Performs better with partial preload because it is slow on locations outside gameplay foremost.
+    mergeSprite: 1 # Fixes misaligned white lines.
 SLES-52323:
   name: "Richard Burns Rally"
   region: "PAL-M5"
@@ -15141,7 +15146,7 @@ SLES-52696:
   name: "Football Manager Campionato 2005"
   region: "PAL-I"
 SLES-52697:
-  name: "Manager de la Liga 2005"
+  name: "Manager de Liga 2005"
   region: "PAL-S"
 SLES-52700:
   name: "Adventures of Jimmy Neutron, The - Boy Genius - Attack of the Twonkies"
@@ -15370,20 +15375,20 @@ SLES-52801:
   gsHWFixes:
     halfPixelOffset: 1 # Fixes ghosting in cutscenes.
 SLES-52802:
-  name: "Lord of the Rings, The - The Third Age"
+  name: "Seigneur des anneaux, Le - Le Tiers Âge"
   region: "PAL-F"
   gsHWFixes:
     halfPixelOffset: 1 # Fixes ghosting in cutscenes.
 SLES-52803:
-  name: "Der Herr der Ringe - Das dritte Zeitalter"
+  name: "Herr der Ringe, Der - Das dritte Zeitalter"
   region: "PAL-G"
 SLES-52804:
-  name: "Lord of the Rings, The - The Third Age"
+  name: "Signore degli Anelli, Il - La Terza Era"
   region: "PAL-I"
   gsHWFixes:
     halfPixelOffset: 1 # Fixes ghosting in cutscenes.
 SLES-52805:
-  name: "Lord of the Rings, The - The Third Age"
+  name: "Señor de Los Anillos, El - La Tercera Edad"
   region: "PAL-S"
   gsHWFixes:
     halfPixelOffset: 1 # Fixes ghosting in cutscenes.
@@ -15395,7 +15400,7 @@ SLES-52807:
   gsHWFixes:
     halfPixelOffset: 1 # Reduces lighting misalignment but doesn't fully fix it.
 SLES-52808:
-  name: "Lemony Snicket's A Series of Unfortunate Events"
+  name: "Désastreuses Aventures des orphelins Baudelaire, Les"
   region: "PAL-F"
   clampModes:
     eeClampMode: 3 # Fixes the inability to collect items.
@@ -15409,7 +15414,7 @@ SLES-52809:
   gsHWFixes:
     halfPixelOffset: 1 # Reduces lighting misalignment but doesn't fully fix it.
 SLES-52810:
-  name: "Lemony Snicket's Una Serie Disfortunati Eventi"
+  name: "Lemony Snicket Una Serie Di Sfortunati Eventi"
   region: "PAL-I"
   clampModes:
     eeClampMode: 3 # Fixes the inability to collect items.
@@ -15433,7 +15438,7 @@ SLES-52815:
   name: "Disney-Pixar's The Incredibles"
   region: "PAL-G"
 SLES-52816:
-  name: "Incredibles, The"
+  name: "Increíbles, Los"
   region: "PAL-S"
 SLES-52820:
   name: "Incredibles, The"
@@ -15451,7 +15456,7 @@ SLES-52824:
   name: "Furry Tales"
   region: "PAL-E-F"
 SLES-52825:
-  name: "Lemony Snicket's A Series of Unfortunate Events"
+  name: "Serie de Catastróficas Desdichas de Lemony Snicket, Una"
   region: "PAL-S"
   clampModes:
     eeClampMode: 3 # Fixes the inability to collect items.
@@ -15821,7 +15826,7 @@ SLES-52985:
   name: "Spongebob SquarePants - The Movie"
   region: "PAL-G"
 SLES-52986:
-  name: "Spongebob SquarePants - The Movie"
+  name: "Bob Esponja La Película"
   region: "PAL-S"
 SLES-52988:
   name: "Mega Man X8"
@@ -16262,7 +16267,7 @@ SLES-53143:
   name: "Fantastic Four"
   region: "PAL-E"
 SLES-53144:
-  name: "Four Fantastiques, Les"
+  name: "4 Fantastiques, Les"
   region: "PAL-F"
 SLES-53145:
   name: "Fantastic Four"
@@ -16271,7 +16276,7 @@ SLES-53146:
   name: "I Fantastici Quattro"
   region: "PAL-I"
 SLES-53147:
-  name: "Four Fantasticos, Los"
+  name: "4 Fantásticos, Los"
   region: "PAL-S"
 SLES-53148:
   name: "Fruitfall"
@@ -16466,7 +16471,7 @@ SLES-53242:
     roundSprite: 2 # Improves bloom alignment and clarity.
     halfPixelOffset: 2 # Improves bloom alignment and clarity.
 SLES-53246:
-  name: "Dreamworks Madagascar"
+  name: "Madagascar"
   region: "PAL-S"
   gsHWFixes:
     roundSprite: 2 # Improves bloom alignment and clarity.
@@ -17346,7 +17351,7 @@ SLES-53580:
   name: "NBA Live '06"
   region: "PAL-F"
 SLES-53581:
-  name: "NBA Live '06"
+  name: "NBA Live 06"
   region: "PAL-S"
 SLES-53582:
   name: "Bratz - Rock Angelz"
@@ -17652,12 +17657,12 @@ SLES-53706:
   gsHWFixes:
     halfPixelOffset: 2 # Fixes lighting misalignment.
 SLES-53707:
-  name: "Chronicles of Narnia, The - The Lion, The Witch and The Wardrobe"
+  name: "Chroniken von Narnia, Die - Der König von Narnia"
   region: "PAL-G"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes lighting misalignment.
 SLES-53708:
-  name: "Chronicles of Narnia, The - The Lion, The Witch and The Wardrobe"
+  name: "Cronache di Narnia, Le - Il Leone, La Strega e L'Armadio"
   region: "PAL-I"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes lighting misalignment.
@@ -17667,7 +17672,7 @@ SLES-53709:
   gsHWFixes:
     halfPixelOffset: 2 # Fixes lighting misalignment.
 SLES-53710:
-  name: "Chronicles of Narnia, The - The Lion, The Witch and The Wardrobe"
+  name: "Crónicas de Narnia, Las - El León, La Bruja y El Armario"
   region: "PAL-S"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes lighting misalignment.
@@ -18137,9 +18142,6 @@ SLES-53886:
         patch=1,EE,0037EBD8,word,4af103bc
         patch=1,EE,0037EBF0,word,4a800460
         patch=1,EE,0037EBF4,word,4b7103bc
-SLES-53897:
-  name: "Dreamworks Vecinos Invasores"
-  region: "PAL-S"
 SLES-53899:
   name: "Pro Evolution Soccer Management"
   region: "PAL-M5"
@@ -18200,7 +18202,7 @@ SLES-53913:
   name: "Plan, The"
   region: "PAL-F-I"
 SLES-53914:
-  name: "Plan, The"
+  name: "Plan, Th3"
   region: "PAL-S"
 SLES-53915:
   name: "Space War Attack"
@@ -18343,12 +18345,12 @@ SLES-53984:
         patch=1,EE,002FF3F0,word,27BDFEE0
         patch=1,EE,002FF42C,word,27BD0120
 SLES-53986:
-  name: "Over the Hedge"
+  name: "gang del bosco, La"
   region: "PAL-I"
   speedHacks:
     MTVUSpeedHack: 0 # Fixes bad graphics due to bad T-Bit handling.
 SLES-53987:
-  name: "Over the Hedge"
+  name: "Vecinos Invasores"
   region: "PAL-S"
   speedHacks:
     MTVUSpeedHack: 0 # Fixes bad graphics due to bad T-Bit handling.
@@ -18993,7 +18995,7 @@ SLES-54250:
   name: "NBA Live '07"
   region: "PAL-F"
 SLES-54251:
-  name: "NBA Live '07"
+  name: "NBA Live 07"
   region: "PAL-S"
 SLES-54252:
   name: "NBA Live '07"
@@ -19427,7 +19429,7 @@ SLES-54451:
   name: "Himmel und Huhn - Ace in Action"
   region: "PAL-G"
 SLES-54452:
-  name: "Chicken Little - 'As' en Accion"
+  name: "Disney Chicken Little - As en Acción"
   region: "PAL-S"
 SLES-54453:
   name: "Chicken Little - Asso Spaziale!"
@@ -19443,7 +19445,6 @@ SLES-54455:
   gsHWFixes:
     halfPixelOffset: 1 # Fixes misaligned bloom effects.
     mergeSprite: 1 # Fixes blurriness but removes bloom + Recommended to use Shadeboost brightness 80.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-54456:
   name: "Beverly Hills Cop"
@@ -19609,7 +19610,6 @@ SLES-54516:
   gsHWFixes:
     halfPixelOffset: 1 # Fixes misaligned bloom effects.
     mergeSprite: 1 # Fixes blurriness but removes bloom + Recommended to use Shadeboost brightness 80.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-54517:
   name: "Thrillville"
@@ -19617,7 +19617,6 @@ SLES-54517:
   gsHWFixes:
     halfPixelOffset: 1 # Fixes misaligned bloom effects.
     mergeSprite: 1 # Fixes blurriness but removes bloom + Recommended to use Shadeboost brightness 80.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-54518:
   name: "Clumsy Shumsy"
@@ -19799,7 +19798,7 @@ SLES-54596:
   name: "Heatseeker"
   region: "PAL-M3"
 SLES-54604:
-  name: "¡Qué Pasa Neng! El Videojuego"
+  name: "¡Qué pasa Neng! El videojuego"
   region: "PAL-S"
 SLES-54606:
   name: "Harley-Davidson - Race to the Rally"
@@ -20345,14 +20344,12 @@ SLES-54806:
   region: "PAL-E"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes misaligned bloom effects, 1 is technically more correct compared to software but looks worse.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-54807:
   name: "Thrillville - Off the Rails"
   region: "PAL-F"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes misaligned bloom effects, 1 is technically more correct compared to software but looks worse.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-54809:
   name: "Charlotte's Web"
@@ -20565,7 +20562,6 @@ SLES-54887:
   region: "PAL-G"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes misaligned bloom effects, 1 is technically more correct compared to software but looks worse.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-54888:
   name: "Pro Biker 2"
@@ -20921,14 +20917,12 @@ SLES-55010:
   region: "PAL-I"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes misaligned bloom effects, 1 is technically more correct compared to software but looks worse.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-55011:
   name: "Thrillville - Fuera de Control"
   region: "PAL-S"
   gsHWFixes:
     halfPixelOffset: 2 # Fixes misaligned bloom effects, 1 is technically more correct compared to software but looks worse.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLES-55012:
   name: "Golden Compass, The"
@@ -23882,6 +23876,7 @@ SLPM-55080:
     eeClampMode: 3 # Characters are visible in-game.
   gsHWFixes:
     texturePreloading: 1 # Performs better with partial preload because it is slow on locations outside gameplay foremost.
+    mergeSprite: 1 # Fixes misaligned white lines.
 SLPM-55081:
   name: "Drag-on Dragoon 2 - Fuuin no Aka, Haitoku no Kuro [Ultimate Hits]"
   region: "NTSC-J"
@@ -25450,6 +25445,9 @@ SLPM-62343:
 SLPM-62344:
   name: "Simple 2000 Series Vol. 31 - The Chikyuu Boueigun"
   region: "NTSC-J"
+  gsHWFixes:
+    mipmap: 2 # Improves distant textures.
+    trilinearFiltering: 1 # Smooths high frequency textures on distant ground.
 SLPM-62345:
   name: "Simple 2000 Series Vol. 32 - The Sensha"
   region: "NTSC-J"
@@ -27727,6 +27725,7 @@ SLPM-65266:
     eeClampMode: 3 # Characters are visible in-game.
   gsHWFixes:
     texturePreloading: 1 # Performs better with partial preload because it is slow on locations outside gameplay foremost.
+    mergeSprite: 1 # Fixes misaligned white lines.
 SLPM-65267:
   name: "Kurogane no Houkou 2 - Warship Gunner"
   region: "NTSC-J"
@@ -27888,6 +27887,8 @@ SLPM-65310:
 SLPM-65311:
   name: "Violet no Atelier - Gramnad no Renkinjutsushi"
   region: "NTSC-J"
+  gsHWFixes:
+    roundSprite: 1 # Aligns text boxes.
 SLPM-65313:
   name: "First Kiss Story 1&2"
   region: "NTSC-J"
@@ -29056,6 +29057,8 @@ SLPM-65682:
 SLPM-65683:
   name: "Violet no Atelier - Gramnad no Renkinjutsushi [Gust Best Price]"
   region: "NTSC-J"
+  gsHWFixes:
+    roundSprite: 1 # Aligns text boxes.
 SLPM-65684:
   name: "Meine Liebe - Yuubinaru Kioku"
   region: "NTSC-J"
@@ -30772,7 +30775,6 @@ SLPM-66167:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SLPM-66168:
   name: "Ryu Ga Gotoku"
@@ -33839,7 +33841,6 @@ SLPM-67010:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SLPM-67011:
   name: "God of War [CapKore]"
@@ -33847,7 +33848,6 @@ SLPM-67011:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SLPM-67012:
   name: "God of War [Best Price]"
@@ -33855,7 +33855,6 @@ SLPM-67012:
   gsHWFixes:
     alignSprite: 1 # Fixes water vertical lines.
     roundSprite: 1 # Fixes vertical lines and minor ghosting.
-    wrapGSMem: 1 # Fixes FMV when in progressive mode.
     autoFlush: 1 # Fixes sun going through walls.
 SLPM-67013:
   name: "God of War II - The End Begins"
@@ -39810,6 +39809,8 @@ SLUS-20024:
   name: "Legacy of Kain - Blood Omen 2"
   region: "NTSC-U"
   compat: 5
+  roundModes:
+    eeRoundMode: 0 # Fixes pathing.
   gsHWFixes:
     mipmap: 1 # Fixes glitching textures.
 SLUS-20028:
@@ -42669,6 +42670,8 @@ SLUS-20682:
   name: "K-1 World Grand Prix"
   region: "NTSC-U"
   compat: 5
+  gsHWFixes:
+    alignSprite: 1 # Fixes black vertical lines.
 SLUS-20683:
   name: "Lupin the 3rd - Treasure of the Sorcerer King"
   region: "NTSC-U"
@@ -42906,6 +42909,7 @@ SLUS-20732:
     eeClampMode: 3 # Characters are visible in-game.
   gsHWFixes:
     texturePreloading: 1 # Performs better with partial preload because it is slow on locations outside gameplay foremost.
+    mergeSprite: 1 # Fixes misaligned white lines.
 SLUS-20733:
   name: "Castlevania - Lament of Innocence"
   region: "NTSC-U"
@@ -46480,7 +46484,6 @@ SLUS-21413:
   gsHWFixes:
     halfPixelOffset: 1 # Fixes misaligned bloom effects.
     mergeSprite: 1 # Fixes blurriness but removes bloom + Recommended to use Shadeboost brightness 80.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLUS-21414:
   name: "Delta Force - Black Hawk Down - Team Sabre"
@@ -47346,7 +47349,6 @@ SLUS-21611:
   compat: 5
   gsHWFixes:
     halfPixelOffset: 2 # Fixes misaligned bloom effects, 1 is technically more correct compared to software but looks worse.
-    wrapGSMem: 1 # Fixes FMVs missing video pieces.
     deinterlace: 8 # Game requires adaptive (or blend) tff deinterlacing instead of auto for the whole game.
 SLUS-21612:
   name: "Legend of the Dragon"

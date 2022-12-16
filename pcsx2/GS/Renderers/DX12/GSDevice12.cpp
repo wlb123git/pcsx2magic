@@ -770,6 +770,7 @@ void GSDevice12::DoShadeBoost(GSTexture* sTex, GSTexture* dTex, const float para
 	const GSVector4i dRect(0, 0, dTex->GetWidth(), dTex->GetHeight());
 	EndRenderPass();
 	OMSetRenderTargets(dTex, nullptr, dRect);
+	SetUtilityRootSignature();
 	SetUtilityTexture(sTex, m_point_sampler_cpu);
 	BeginRenderPass(D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE,
 		D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS);
@@ -787,6 +788,7 @@ void GSDevice12::DoFXAA(GSTexture* sTex, GSTexture* dTex)
 	const GSVector4i dRect(0, 0, dTex->GetWidth(), dTex->GetHeight());
 	EndRenderPass();
 	OMSetRenderTargets(dTex, nullptr, dRect);
+	SetUtilityRootSignature();
 	SetUtilityTexture(sTex, m_linear_sampler_cpu);
 	BeginRenderPass(D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_DISCARD, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_PRESERVE,
 		D3D12_RENDER_PASS_BEGINNING_ACCESS_TYPE_NO_ACCESS, D3D12_RENDER_PASS_ENDING_ACCESS_TYPE_NO_ACCESS);
@@ -1852,7 +1854,7 @@ void GSDevice12::ExecuteCommandList(bool wait_for_completion, const char* reason
 
 void GSDevice12::ExecuteCommandListAndRestartRenderPass(bool wait_for_completion, const char* reason)
 {
-	Console.Warning("Vulkan: Executing command buffer due to '%s'", reason);
+	Console.Warning("D3D12: Executing command buffer due to '%s'", reason);
 
 	const bool was_in_render_pass = m_in_render_pass;
 	EndRenderPass();
