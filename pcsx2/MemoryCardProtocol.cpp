@@ -711,7 +711,7 @@ void MemoryCardProtocol::AuthCrypt()
 				fifoOut.push_back(buf[i]);
 			}
 			fifoOut.push_back(xorResult);
-			The2bTerminator(14);
+			fifoOut.push_back(mcd->term);
 			break;
 		default:
 			Console.Warning("%s(queue) Unexpected modeByte (%02X), please report to the PCSX2 team", __FUNCTION__, modeByte);
