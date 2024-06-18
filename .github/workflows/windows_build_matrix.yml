@@ -1,6 +1,7 @@
 name: 🖥️ Windows Builds
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - '*'
